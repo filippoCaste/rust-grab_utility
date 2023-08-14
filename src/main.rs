@@ -1,12 +1,14 @@
 use iced::executor;
-use iced::widget::{button, column, image, text};
+use iced::theme;
+use iced::widget::{button, column, container, horizontal_space, image, row, text};
 use iced::window;
-use iced::{Alignment, Application, Command, Element, Settings, Theme};
+use iced::{Alignment, Application, Command, Element, Length, Settings, Theme};
+use native_dialog::FileDialog;
 use screenshots::Screen;
 use std::fs;
 
 pub fn main() -> iced::Result {
-    Counter::run(Settings {
+    Screenshot::run(Settings {
         window: window::Settings {
             size: (700, 600),
             ..window::Settings::default()
@@ -16,28 +18,30 @@ pub fn main() -> iced::Result {
 }
 
 #[derive(Debug)]
-struct Counter {
-    value: i32,
+struct Screenshot {
     image: Option<image::Handle>,
+    buffer: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Copy)]
 enum Message {
     TakeScreenshotPressed,
     TakeScreenshot,
+    SaveImage,
+    Settings,
 }
 
-impl Application for Counter {
+impl Application for Screenshot {
     type Message = Message;
     type Theme = Theme;
     type Executor = executor::Default;
     type Flags = ();
 
-    fn new(_flags: ()) -> (Counter, Command<Message>) {
+    fn new(_flags: ()) -> (Screenshot, Command<Message>) {
         (
-            Counter {
-                value: 0,
+            Screenshot {
                 image: None,
+                buffer: None,
             },
             Command::none(),
         )
@@ -54,15 +58,30 @@ impl Application for Counter {
                 Command::perform(async {}, |()| Message::TakeScreenshot),
             ]),
             Message::TakeScreenshot => {
-                self.value += 1;
                 let screen = Screen::all().unwrap()[0];
                 let image = screen.capture().unwrap();
-                let filename = format!("screen_{}.png", self.value);
-                let buffer = image.to_png(None).unwrap();
-                fs::write(&filename, buffer).unwrap();
-                self.image = Some(image::Handle::from_path(&filename));
+                self.buffer = Some(image.to_png(None).unwrap());
+                self.image = Some(image::Handle::from_memory(self.buffer.clone().unwrap()));
                 window::change_mode(window::Mode::Windowed)
             }
+            Message::SaveImage => {
+                let result = FileDialog::new()
+                    .add_filter("PNG Image", &["png"])
+                    .add_filter("JPEG Image", &["jpg", "jpeg"])
+                    .add_filter("GIF Image", &["gif"])
+                    .show_save_single_file()
+                    .unwrap();
+                let result = match result {
+                    Some(result) => {
+                        fs::write(result.clone(), self.buffer.clone().unwrap()).unwrap();
+                        Command::none()
+                    }
+                    None => Command::none(),
+                };
+
+                result
+            }
+            Message::Settings => Command::none(),
         }
     }
 
@@ -75,13 +94,37 @@ impl Application for Counter {
         let image_viewer_element: Element<Message> =
             image_viewer.unwrap_or_else(|| text::Text::new("No screenshot taken yet").into());
 
-        column![
-            button("Take Screenshot").on_press(Message::TakeScreenshotPressed),
-            text(self.value).size(50),
-            image_viewer_element,
-        ]
-        .padding(20)
-        .align_items(Alignment::Center)
-        .into()
+        let button_save = if self.buffer.is_some() {
+            button("Save").on_press(Message::SaveImage)
+        } else {
+            button("Save")
+        };
+
+        let content = container(
+            column![
+                row![
+                    button("+ New").on_press(Message::TakeScreenshotPressed),
+                    horizontal_space(Length::Fill),
+                    button("Settings")
+                        .on_press(Message::Settings)
+                        .style(theme::Button::Secondary),
+                    horizontal_space(10),
+                    button_save
+                ]
+                .align_items(Alignment::Start)
+                .padding(10),
+                container(image_viewer_element)
+                    .center_x()
+                    .center_y()
+                    .width(Length::Fill)
+                    .height(Length::Fill),
+            ]
+            .height(Length::Fill),
+        )
+        .padding(10)
+        .width(Length::Fill)
+        .height(Length::Fill);
+
+        content.into()
     }
 }
