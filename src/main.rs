@@ -58,14 +58,23 @@ impl Application for Screenshot {
                 window::change_mode(window::Mode::Hidden),
                 Command::perform(async {}, |()| Message::TakeScreenshot),
             ]),
-            Message::TakeScreenshot => {
+            Message::TakeScreenshot => window::fetch_mode(|mode| match mode {
+                window::Mode::Hidden => {
+                    println!("true");
+                    Message::ViewWindow
+                }
+                _ => {
+                    println!("false");
+                    Message::TakeScreenshot
+                }
+            }),
+            Message::ViewWindow => {
                 let screen = Screen::all().unwrap()[0];
                 let image = screen.capture().unwrap();
                 self.buffer = Some(image.to_png(None).unwrap());
                 self.image = Some(image::Handle::from_memory(self.buffer.clone().unwrap()));
-                Command::perform(async {}, |()| Message::ViewWindow)
+                window::change_mode(window::Mode::Windowed)
             }
-            Message::ViewWindow => window::change_mode(window::Mode::Windowed),
             Message::SaveImage => {
                 let result = FileDialog::new()
                     .add_filter("PNG Image", &["png"])
