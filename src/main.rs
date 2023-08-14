@@ -27,6 +27,7 @@ struct Screenshot {
 enum Message {
     TakeScreenshotPressed,
     TakeScreenshot,
+    ViewWindow,
     SaveImage,
     Settings,
 }
@@ -62,8 +63,9 @@ impl Application for Screenshot {
                 let image = screen.capture().unwrap();
                 self.buffer = Some(image.to_png(None).unwrap());
                 self.image = Some(image::Handle::from_memory(self.buffer.clone().unwrap()));
-                window::change_mode(window::Mode::Windowed)
+                Command::perform(async {}, |()| Message::ViewWindow)
             }
+            Message::ViewWindow => window::change_mode(window::Mode::Windowed),
             Message::SaveImage => {
                 let result = FileDialog::new()
                     .add_filter("PNG Image", &["png"])
