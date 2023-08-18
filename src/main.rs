@@ -1,141 +1,49 @@
-use iced::executor;
-use iced::theme;
-use iced::widget::{button, column, container, horizontal_space, image, row, text};
-use iced::window;
-use iced::{Alignment, Application, Command, Element, Length, Settings, Theme};
-use native_dialog::FileDialog;
-use screenshots::Screen;
-use std::fs;
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-pub fn main() -> iced::Result {
-    Screenshot::run(Settings {
-        window: window::Settings {
-            size: (700, 600),
-            ..window::Settings::default()
-        },
-        ..Settings::default()
-    })
+use eframe::egui;
+
+fn main() -> Result<(), eframe::Error> {
+    let options = eframe::NativeOptions {
+        maximized: true,
+        decorated: false,
+        transparent: true,
+        resizable: false,
+        ..Default::default()
+    };
+    eframe::run_native(
+        "My egui App",
+        options,
+        Box::new(|_cc| Box::<MyApp>::default()),
+    )
 }
 
-#[derive(Debug)]
-struct Screenshot {
-    image: Option<image::Handle>,
-    buffer: Option<Vec<u8>>,
+struct MyApp {
+    name: String,
+    age: u32,
 }
 
-#[derive(Debug, Clone, Copy)]
-enum Message {
-    TakeScreenshotPressed,
-    TakeScreenshot,
-    ViewWindow,
-    SaveImage,
-    Settings,
-}
-
-impl Application for Screenshot {
-    type Message = Message;
-    type Theme = Theme;
-    type Executor = executor::Default;
-    type Flags = ();
-
-    fn new(_flags: ()) -> (Screenshot, Command<Message>) {
-        (
-            Screenshot {
-                image: None,
-                buffer: None,
-            },
-            Command::none(),
-        )
-    }
-
-    fn title(&self) -> String {
-        String::from("Screenshot")
-    }
-
-    fn update(&mut self, message: Message) -> Command<Message> {
-        match message {
-            Message::TakeScreenshotPressed => Command::batch(vec![
-                window::change_mode(window::Mode::Hidden),
-                Command::perform(async {}, |()| Message::TakeScreenshot),
-            ]),
-            Message::TakeScreenshot => window::fetch_mode(|mode| match mode {
-                window::Mode::Hidden => {
-                    println!("true");
-                    Message::ViewWindow
-                }
-                _ => {
-                    println!("false");
-                    Message::TakeScreenshot
-                }
-            }),
-            Message::ViewWindow => {
-                let screen = Screen::all().unwrap()[0];
-                let image = screen.capture().unwrap();
-                self.buffer = Some(image.to_png(None).unwrap());
-                self.image = Some(image::Handle::from_memory(self.buffer.clone().unwrap()));
-                window::change_mode(window::Mode::Windowed)
-            }
-            Message::SaveImage => {
-                let result = FileDialog::new()
-                    .add_filter("PNG Image", &["png"])
-                    .add_filter("JPEG Image", &["jpg", "jpeg"])
-                    .add_filter("GIF Image", &["gif"])
-                    .show_save_single_file()
-                    .unwrap();
-                let result = match result {
-                    Some(result) => {
-                        fs::write(result.clone(), self.buffer.clone().unwrap()).unwrap();
-                        Command::none()
-                    }
-                    None => Command::none(),
-                };
-
-                result
-            }
-            Message::Settings => Command::none(),
+impl Default for MyApp {
+    fn default() -> Self {
+        Self {
+            name: "Arthur".to_owned(),
+            age: 42,
         }
     }
+}
 
-    fn view(&self) -> Element<Message> {
-        let image_viewer = self
-            .image
-            .as_ref()
-            .map(|image_handle| image::viewer(image_handle.clone()).into());
-
-        let image_viewer_element: Element<Message> =
-            image_viewer.unwrap_or_else(|| text::Text::new("No screenshot taken yet").into());
-
-        let button_save = if self.buffer.is_some() {
-            button("Save").on_press(Message::SaveImage)
-        } else {
-            button("Save")
-        };
-
-        let content = container(
-            column![
-                row![
-                    button("+ New").on_press(Message::TakeScreenshotPressed),
-                    horizontal_space(Length::Fill),
-                    button("Settings")
-                        .on_press(Message::Settings)
-                        .style(theme::Button::Secondary),
-                    horizontal_space(10),
-                    button_save
-                ]
-                .align_items(Alignment::Start)
-                .padding(10),
-                container(image_viewer_element)
-                    .center_x()
-                    .center_y()
-                    .width(Length::Fill)
-                    .height(Length::Fill),
-            ]
-            .height(Length::Fill),
-        )
-        .padding(10)
-        .width(Length::Fill)
-        .height(Length::Fill);
-
-        content.into()
+impl eframe::App for MyApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::Window::new("Screenshot").show(ctx, |ui| {
+            if ui.button("Take screenshot").clicked() {
+                self.age += 1;
+            }
+        });
+        egui::Window::new("ciao")
+            .title_bar(false)
+            .default_size(egui::vec2(320.0, 240.0))
+            .resizable(true)
+            .show(ctx, |ui| {
+                ui.allocate_space(ui.available_size());
+            });
     }
 }
