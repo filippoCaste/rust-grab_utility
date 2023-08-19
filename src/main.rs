@@ -2,6 +2,7 @@ use eframe::egui::{self};
 use native_dialog::FileDialog;
 use screenshots::Screen;
 use std::{fs, time::Duration};
+use chrono::prelude::*;
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -56,7 +57,14 @@ impl eframe::App for MyApp {
                 }
                 let t = std::thread::spawn(move || {
                     let buffer = Some(image.to_png(None).unwrap());
+                    let today = Utc::now().to_string()
+                        .replace("-", "")
+                        .replace(":", "_")
+                        .replace(" ", "")
+                        .to_string();
+                    let concatenated_string = format!("screenshot_{}", today);
                     let result = FileDialog::new()
+                        .set_filename(&concatenated_string[..27])
                         .add_filter("PNG Image", &["png"])
                         .add_filter("JPEG Image", &["jpg", "jpeg"])
                         .add_filter("GIF Image", &["gif"])
@@ -66,11 +74,11 @@ impl eframe::App for MyApp {
                         Some(result) => {
                             fs::write(result.clone(), buffer.clone().unwrap()).unwrap();
                         }
-                        None => (),
+                        None => (), // BUG: se fai annulla, non ricompare la finestra dell'applicazione
                     };
                 });
 
-                t.join().and_then(|()| Ok({self.window_hidden = 0; frame.set_visible(true);})).unwrap();
+                t.join().and_then(|()| Ok({self.window_hidden = 0;})).unwrap();
 
             }
             ui.horizontal(|ui|{
@@ -108,6 +116,7 @@ impl eframe::App for MyApp {
     }   
 
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        // to make the background of the app completely transparent
         egui::Rgba::TRANSPARENT.to_array()
     } 
 }
