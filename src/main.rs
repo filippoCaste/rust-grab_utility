@@ -1,11 +1,11 @@
 use eframe::egui;
 use screenshots::Screen;
-use std::fs;
+use std::{fs, time::Duration};
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         maximized: true,
-        decorated: false,
+        decorated: true,
         transparent: true,
         resizable: false,
         ..Default::default()
@@ -35,7 +35,9 @@ struct RectangleCrop {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+
         if self.window_hidden != 0 {
+            std::thread::sleep(Duration::from_secs(1));
             let screen = Screen::all().unwrap()[0];
             let image;
             if self.window_hidden == 1 {
@@ -54,7 +56,7 @@ impl eframe::App for MyApp {
             fs::write("screen.png", self.buffer.clone().unwrap()).unwrap();
             self.window_hidden = 0;
             frame.set_visible(true);
-        }
+        } 
 
         egui::Window::new("Screenshot").show(ctx, |ui| {
             if ui.button("Take screenshot").clicked() {
