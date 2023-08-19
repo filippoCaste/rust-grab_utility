@@ -23,6 +23,7 @@ fn main() -> Result<(), eframe::Error> {
 struct MyApp {
     screen_rect: RectangleCrop,
     window_hidden: u8,
+    delay: u64,
 }
 
 #[derive(Default, Clone)]
@@ -38,13 +39,17 @@ impl eframe::App for MyApp {
         egui::Window::new("Screenshot").show(ctx, |ui| {
 
             if self.window_hidden != 0 {
-                std::thread::sleep(Duration::from_secs(1));
+                if self.delay == 0 {self.delay += 1;}
+                std::thread::sleep(Duration::from_secs(self.delay));
                 let coord = self.screen_rect.clone();
                 let screen = Screen::all().unwrap()[0];
                 let image;
                 if self.window_hidden == 1 {
-                    image = screen.capture_area(coord.x_left.floor() as i32, coord.y_left.floor() as i32, 
-                                                            coord.width.floor() as u32, coord.height.floor() as u32).unwrap();
+                    image = screen.capture_area(
+                        coord.x_left.floor() as i32, 
+                        coord.y_left.floor() as i32, 
+                    coord.width.floor() as u32, 
+                    coord.height.floor() as u32).unwrap();
                 }
                 else {
                     image = screen.capture().unwrap();
@@ -68,19 +73,22 @@ impl eframe::App for MyApp {
                 t.join().and_then(|()| Ok({self.window_hidden = 0; frame.set_visible(true);})).unwrap();
 
             }
+            ui.horizontal(|ui|{
+                if ui.button("Take screenshot").clicked() {
+
+                    frame.set_visible(false);
+                    self.window_hidden = 1;   
+                    
+                }
+                if ui.button("Whole screen").clicked() {
+
+                    frame.set_visible(false);
+                    self.window_hidden = 2;
+
+            }});
+
+            ui.add(egui::Slider::new(&mut self.delay, 0..=120).text("delay (s)"));
             
-            if ui.button("Take screenshot").clicked() {
-
-                frame.set_visible(false);
-                self.window_hidden = 1;   
-                
-            }
-            if ui.button("Whole screen").clicked() {
-
-                frame.set_visible(false);
-                self.window_hidden = 2;
-
-            }
         });
         let w = egui::Window::new("ciao")
             .title_bar(false)
@@ -97,5 +105,9 @@ impl eframe::App for MyApp {
 
         let r = w.unwrap().response.rect;
         self.screen_rect = RectangleCrop { x_left: r.left(), y_left: r.top(), width: r.width(), height: r.height() }
-    }    
+    }   
+
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        egui::Rgba::TRANSPARENT.to_array()
+    } 
 }
