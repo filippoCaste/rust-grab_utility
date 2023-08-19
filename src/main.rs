@@ -1,7 +1,7 @@
 use eframe::egui::{self};
 use native_dialog::FileDialog;
 use screenshots::Screen;
-use std::fs;
+use std::{fs, time::Duration};
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -22,6 +22,7 @@ fn main() -> Result<(), eframe::Error> {
 #[derive(Default, Clone)]
 struct MyApp {
     screen_rect: RectangleCrop,
+    window_hidden: u8,
 }
 
 #[derive(Default, Clone)]
@@ -35,16 +36,20 @@ struct RectangleCrop {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::Window::new("Screenshot").show(ctx, |ui| {
-            
-            if ui.button("Take screenshot").clicked() {
 
-                frame.set_visible(false);                
-                
+            if self.window_hidden != 0 {
+                std::thread::sleep(Duration::from_secs(1));
                 let coord = self.screen_rect.clone();
-                let t = std::thread::spawn(move || {
-                    let screen = Screen::all().unwrap()[0];
-                    let image = screen.capture_area(coord.x_left.floor() as i32, coord.y_left.floor() as i32, 
+                let screen = Screen::all().unwrap()[0];
+                let image;
+                if self.window_hidden == 1 {
+                    image = screen.capture_area(coord.x_left.floor() as i32, coord.y_left.floor() as i32, 
                                                             coord.width.floor() as u32, coord.height.floor() as u32).unwrap();
+                }
+                else {
+                    image = screen.capture().unwrap();
+                }
+                let t = std::thread::spawn(move || {
                     let buffer = Some(image.to_png(None).unwrap());
                     let result = FileDialog::new()
                         .add_filter("PNG Image", &["png"])
@@ -60,37 +65,32 @@ impl eframe::App for MyApp {
                     };
                 });
 
-                t.join().and_then(|()| Ok({frame.set_visible(true);})).unwrap();
+                t.join().and_then(|()| Ok({self.window_hidden = 0; frame.set_visible(true);})).unwrap();
+
+            }
+            
+            if ui.button("Take screenshot").clicked() {
+
+                frame.set_visible(false);
+                self.window_hidden = 1;   
+                
             }
             if ui.button("Whole screen").clicked() {
 
                 frame.set_visible(false);
+                self.window_hidden = 2;
 
-                let t = std::thread::spawn(move || {
-                    let screen = Screen::all().unwrap()[0];
-                    let image = screen.capture().unwrap();
-                    let buffer = Some(image.to_png(None).unwrap());
-                    let result = FileDialog::new()
-                        .add_filter("PNG Image", &["png"])
-                        .add_filter("JPEG Image", &["jpg", "jpeg"])
-                        .add_filter("GIF Image", &["gif"])
-                        .show_save_single_file()
-                        .unwrap();
-                    match result {
-                        Some(result) => {
-                            fs::write(result.clone(), buffer.clone().unwrap()).unwrap();
-                        }
-                        None => (),
-                    };
-                });
-
-                t.join().and_then(|()| Ok({frame.set_visible(true);})).unwrap();
             }
         });
         let w = egui::Window::new("ciao")
             .title_bar(false)
             .default_size(egui::vec2(320.0, 240.0))
             .resizable(true)
+            .frame(egui::Frame {
+                fill: egui::Color32::TRANSPARENT,
+                stroke: egui::Stroke::new(1.5, egui::Color32::DARK_GRAY),
+                ..Default::default()
+            })
             .show(ctx, |ui| {
                 ui.allocate_space(ui.available_size());
             });
