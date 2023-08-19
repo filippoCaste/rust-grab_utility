@@ -35,8 +35,10 @@ struct RectangleCrop {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::Window::new("Screenshot").show(ctx, |ui| {
+            
             if ui.button("Take screenshot").clicked() {
-                frame.set_visible(false);
+
+                frame.set_visible(false);                
                 
                 let coord = self.screen_rect.clone();
                 let t = std::thread::spawn(move || {
@@ -58,8 +60,7 @@ impl eframe::App for MyApp {
                     };
                 });
 
-                t.join().unwrap();
-                frame.set_visible(true);
+                t.join().and_then(|()| Ok({frame.set_visible(true);})).unwrap();
             }
             if ui.button("Whole screen").clicked() {
 
@@ -84,8 +85,6 @@ impl eframe::App for MyApp {
                 });
 
                 t.join().and_then(|()| Ok({frame.set_visible(true);})).unwrap();
-                // frame.set_visible(true);
-
             }
         });
         let w = egui::Window::new("ciao")
