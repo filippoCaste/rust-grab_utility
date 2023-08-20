@@ -1,7 +1,7 @@
 use eframe::egui;
 use image;
 use screenshots::Screen;
-use std::{fs, path::Path, time::Duration};
+use std::time::Duration;
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -27,6 +27,7 @@ struct MyApp {
     mode: bool,
     mode_radio: Enum,
     image_viewer: bool,
+    mac_bug: bool,
 }
 
 struct RectangleCrop {
@@ -57,12 +58,19 @@ impl Default for MyApp {
             mode: false,
             mode_radio: Enum::Screen,
             image_viewer: false,
+            mac_bug: false,
         }
     }
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        ctx.set_visuals(egui::Visuals::light());
+        if self.mac_bug {
+            std::thread::sleep(Duration::from_millis(30));
+            frame.set_visible(true);
+            self.mac_bug = false;
+        }
         if self.window_hidden {
             std::thread::sleep(Duration::from_secs(1));
             let screen = Screen::all().unwrap()[0];
@@ -148,11 +156,10 @@ impl eframe::App for MyApp {
                             if ui.button("  Modify  ").clicked() {}
                             if ui.button("  Take another Screenshot  ").clicked() {
                                 self.image_viewer = false;
-                                if self.mode_radio == Enum::Selection {
-                                    self.mode = true;
-                                } else {
-                                    self.mode = false;
-                                }
+                                self.mode_radio = Enum::Screen;
+                                self.mode = false;
+                                frame.set_visible(false);
+                                self.mac_bug = true;
                             }
                             if ui.button("  Save  ").clicked() {}
                             if ui
