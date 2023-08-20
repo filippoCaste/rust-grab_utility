@@ -1,6 +1,7 @@
 use eframe::egui;
+use image;
 use screenshots::Screen;
-use std::{fs, time::Duration};
+use std::{fs, path::Path, time::Duration};
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -19,11 +20,13 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 struct MyApp {
+    texture: Option<egui::TextureHandle>,
     buffer: Option<Vec<u8>>,
     screen_rect: RectangleCrop,
     window_hidden: bool,
     mode: bool,
     mode_radio: Enum,
+    image_viewer: bool,
 }
 
 struct RectangleCrop {
@@ -42,6 +45,7 @@ enum Enum {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
+            texture: None,
             buffer: None,
             screen_rect: RectangleCrop {
                 x_left: 0.0,
@@ -52,6 +56,7 @@ impl Default for MyApp {
             window_hidden: false,
             mode: false,
             mode_radio: Enum::Screen,
+            image_viewer: false,
         }
     }
 }
@@ -75,8 +80,15 @@ impl eframe::App for MyApp {
                 image = screen.capture().unwrap();
             }
             self.buffer = Some(image.to_png(None).unwrap());
-            fs::write("screen.png", self.buffer.clone().unwrap()).unwrap();
+            self.texture = Some(ctx.load_texture(
+                "my-image",
+                load_image_from_memory(&self.buffer.clone().unwrap()).unwrap(),
+                Default::default(),
+            ));
+            //fs::write("screen.png", self.buffer.clone().unwrap()).unwrap();
             self.window_hidden = false;
+            self.image_viewer = true;
+            self.mode = false;
             frame.set_visible(true);
         }
 
@@ -103,31 +115,55 @@ impl eframe::App for MyApp {
                         cross_justify: true,
                     },
                     |ui| {
-                        if ui
-                            .selectable_value(&mut self.mode_radio, Enum::Screen, "  🖵  ")
-                            .on_hover_text("Capture the entire screen")
-                            .clicked()
-                        {
-                            self.mode = false;
-                        };
-                        if ui
-                            .selectable_value(&mut self.mode_radio, Enum::Selection, "  ⛶  ")
-                            .on_hover_text("Capture the selection")
-                            .clicked()
-                        {
-                            self.mode = true;
-                        };
-                        if ui.button("  Options  ").clicked() {}
-                        if ui.button("  Capture  ").clicked() {
-                            frame.set_visible(false);
-                            self.window_hidden = true;
-                        }
-                        if ui
-                            .add(egui::Button::new("  X  ").rounding(egui::Rounding::same(50.0)))
-                            .on_hover_text("Close")
-                            .clicked()
-                        {
-                            frame.close();
+                        if !self.image_viewer {
+                            if ui
+                                .selectable_value(&mut self.mode_radio, Enum::Screen, "  🖵  ")
+                                .on_hover_text("Capture the entire screen")
+                                .clicked()
+                            {
+                                self.mode = false;
+                            };
+                            if ui
+                                .selectable_value(&mut self.mode_radio, Enum::Selection, "  ⛶  ")
+                                .on_hover_text("Capture the selection")
+                                .clicked()
+                            {
+                                self.mode = true;
+                            };
+                            if ui.button("  Options  ").clicked() {}
+                            if ui.button("  Capture  ").clicked() {
+                                frame.set_visible(false);
+                                self.window_hidden = true;
+                            }
+                            if ui
+                                .add(
+                                    egui::Button::new("  X  ").rounding(egui::Rounding::same(50.0)),
+                                )
+                                .on_hover_text("Close")
+                                .clicked()
+                            {
+                                frame.close();
+                            }
+                        } else {
+                            if ui.button("  Modify  ").clicked() {}
+                            if ui.button("  Take another Screenshot  ").clicked() {
+                                self.image_viewer = false;
+                                if self.mode_radio == Enum::Selection {
+                                    self.mode = true;
+                                } else {
+                                    self.mode = false;
+                                }
+                            }
+                            if ui.button("  Save  ").clicked() {}
+                            if ui
+                                .add(
+                                    egui::Button::new("  X  ").rounding(egui::Rounding::same(50.0)),
+                                )
+                                .on_hover_text("Close")
+                                .clicked()
+                            {
+                                frame.close();
+                            }
                         }
                     },
                 );
@@ -153,6 +189,31 @@ impl eframe::App for MyApp {
                 ui.allocate_space(ui.available_size());
             });
 
+        egui::Window::new("image_viewer")
+            .title_bar(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .frame(egui::Frame {
+                fill: egui::Color32::GRAY,
+                stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
+                inner_margin: egui::style::Margin::same(15.0),
+                rounding: egui::Rounding::same(20.0),
+                ..Default::default()
+            })
+            .fixed_size([1000.0, 600.0])
+            .resizable(false)
+            .open(&mut self.image_viewer)
+            .show(ctx, |ui| {
+                ui.image(
+                    &self.texture.clone().unwrap(),
+                    resize_image_to_fit_container(
+                        1000.0,
+                        600.0,
+                        self.texture.clone().unwrap().size_vec2()[0],
+                        self.texture.clone().unwrap().size_vec2()[1],
+                    ),
+                );
+            });
+
         if self.mode == true {
             let r = w.unwrap().response.rect;
             self.screen_rect = RectangleCrop {
@@ -163,8 +224,37 @@ impl eframe::App for MyApp {
             };
         }
     }
-    // fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-    //     // to make the background of the app completely transparent
-    //     egui::Rgba::TRANSPARENT.to_array()
-    // }
+}
+
+fn load_image_from_memory(image_data: &[u8]) -> Result<egui::ColorImage, image::ImageError> {
+    let image = image::load_from_memory(image_data)?;
+    let size = [image.width() as _, image.height() as _];
+    let image_buffer = image.to_rgba8();
+    let pixels = image_buffer.as_flat_samples();
+    Ok(egui::ColorImage::from_rgba_unmultiplied(
+        size,
+        pixels.as_slice(),
+    ))
+}
+
+fn resize_image_to_fit_container(
+    container_width: f32,
+    container_height: f32,
+    image_width: f32,
+    image_height: f32,
+) -> (f32, f32) {
+    let container_ratio = container_width / container_height;
+    let image_ratio = image_width / image_height;
+
+    if container_ratio > image_ratio {
+        // Il contenitore è più largo rispetto all'immagine, quindi adattiamo l'altezza dell'immagine.
+        let new_height = container_height;
+        let new_width = new_height * image_ratio;
+        (new_width, new_height)
+    } else {
+        // Il contenitore è più alto o ha lo stesso rapporto dell'immagine, quindi adattiamo la larghezza dell'immagine.
+        let new_width = container_width;
+        let new_height = new_width / image_ratio;
+        (new_width, new_height)
+    }
 }
