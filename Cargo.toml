@@ -1,5 +1,5 @@
 [package]
-name = "Progetto"
+name = "progetto"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,4 @@ edition = "2021"
 
 [dependencies]
 eframe = "0.22.0"
-egui = "0.22.0"
-env_logger = "0.10.0"
-image = "0.24.7"
+screenshots = "0.7.2"
