@@ -86,7 +86,7 @@ impl Default for MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if self.window_hidden {
-            std::thread::sleep(Duration::from_secs(1));
+            std::thread::sleep(Duration::from_millis(120));
             let screen = Screen::all().unwrap()[0];
             let image;
             if self.mode {
