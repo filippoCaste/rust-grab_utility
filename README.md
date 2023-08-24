@@ -15,8 +15,7 @@ screen grabbing. Users should be able to set up their preferred shortcut keys.
 <!-- FUNZIONALITÀ BONUS -->
 6. [ ] **Annotation Tools**: The utility should have built-in annotation tools like shapes, arrows, text, and a color picker for highlighting or redacting parts of the screen grab.
 7. [x] **Delay Timer**: tramite l'interfaccia, l'utente può impostare il delay dopo il quale la schermata sarà catturata.
-8. [x] **Save Options**: viene aperta una finestra di dialogo del file system attraverso la quale l'utente può scegliere il nome (se diverso da default) e il formato dell'immagine.
-    - [ ] manca far specificare dall'utente la default save location
+8. [x] **Save Options**: viene aperta una finestra di dialogo del file system attraverso la quale l'utente può scegliere il nome (se diverso da default) e il formato dell'immagine. L'utente può anche definire il percorso di default per il salvataggio degli screenshots.
 9.  [ ] **Multi-monitor Support**: The utility should be able to recognize and handle
 multiple monitors independently, allowing users to grab screens from any of the connected 
 displays.
@@ -24,9 +23,8 @@ displays.
 
 ## Esempio di utilizzo
 Una volta lanciata l'applicazione, compaiono 4 bottoni:
-- primo: ...
-- secondo
-- terzo
-- quarto
-
-![Screenshot d'esempio](esempio.png)
+- `🖵`: per catturare la schermata intera
+- `⛶`: per catturare soltanto la porzione di schermo inquadrata
+- `🕓`: per impostare un timer
+- `Options`: per aprire il riquadro dove modificare le opzioni
+- `X`: per chiudere l'applicazione
