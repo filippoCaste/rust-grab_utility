@@ -1,3 +1,4 @@
+use chrono::Utc;
 use eframe::egui;
 use image;
 use native_dialog::FileDialog;
@@ -281,8 +282,15 @@ impl eframe::App for MyApp {
                                     self.mode = false;
                                 }
                             }
-                            if ui.button("  Save  ").clicked() {
+                            if ui.button("  Save  ").clicked() {                    
+                                let today = Utc::now().to_string()
+                                    .replace("-", "")
+                                    .replace(":", "_")
+                                    .replace(" ", "")
+                                    .to_string();
+                                let default_name = format!("screenshot_{}", today);
                                 let result = FileDialog::new()
+                                    .set_filename(&default_name[..27])
                                     .add_filter("PNG Image", &["png"])
                                     .add_filter("JPEG Image", &["jpg", "jpeg"])
                                     .add_filter("GIF Image", &["gif"])
