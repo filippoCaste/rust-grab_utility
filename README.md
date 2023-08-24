@@ -11,13 +11,15 @@
 4. [ ] **Hotkey Support**: The utility should support customizable hotkeys for quick
 screen grabbing. Users should be able to set up their preferred shortcut keys.
 5. [x] **Output Format**: diversi formati supportati per il salvataggio della schermata (png, jpg, gif). Salvataggio anche negli appunti del dispositivo.
+    - [ ] manca salvare negli appunti del dispositivo
 <!-- FUNZIONALITÀ BONUS -->
-6. [ ] **Annotation Tools**: The utility should have built-in annotation tools like
+1. [ ] **Annotation Tools**: The utility should have built-in annotation tools like
 shapes, arrows, text, and a color picker for highlighting or redacting parts of
 the screen grab.
-7. [x] **Delay Timer**: tramite l'interfaccia, l'utente può impostare il delay dopo il quale la schermata sarà catturata.
-8. [x] **Save Options**: viene aperta una finestra di dialogo del file system attraverso la quale l'utente può scegliere il nome (se diverso da default) e il formato dell'immagine.
-9. [ ] **Multi-monitor Support**: The utility should be able to recognize and handle
+1. [x] **Delay Timer**: tramite l'interfaccia, l'utente può impostare il delay dopo il quale la schermata sarà catturata.
+2. [x] **Save Options**: viene aperta una finestra di dialogo del file system attraverso la quale l'utente può scegliere il nome (se diverso da default) e il formato dell'immagine.
+    - [ ] manca far specificare dall'utente la default save location
+3.  [ ] **Multi-monitor Support**: The utility should be able to recognize and handle
 multiple monitors independently, allowing users to grab screens from any of the connected 
 displays.
 

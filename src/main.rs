@@ -55,7 +55,7 @@ impl eframe::App for MyApp {
                 else {
                     image = screen.capture().unwrap();
                 }
-                let t = std::thread::spawn(move || {
+                // let t = std::thread::spawn(move || {
                     let buffer = Some(image.to_png(None).unwrap());
                     let today = Utc::now().to_string()
                         .replace("-", "")
@@ -74,11 +74,12 @@ impl eframe::App for MyApp {
                         Some(result) => {
                             fs::write(result.clone(), buffer.clone().unwrap()).unwrap();
                         }
-                        None => (), // BUG: se fai annulla, non ricompare la finestra dell'applicazione
+                        None => (), 
                     };
-                });
-
-                t.join().and_then(|()| Ok({self.window_hidden = 0;})).unwrap();
+                // });
+                    self.window_hidden = 0;
+                    frame.set_visible(true);
+                // t.join().and_then(|()| Ok({self.window_hidden = 0;})).unwrap();
 
             }
             ui.horizontal(|ui|{
