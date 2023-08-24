@@ -159,15 +159,16 @@ impl eframe::App for MyApp {
 
                             if self.timer.timer_form_open {
                                 ui.label("Timer (seconds):");
-                                if ui.text_edit_singleline(&mut self.timer.text).changed() {
-                                    if self.timer.text == "" {
-                                        self.timer.seconds = 0;
-                                    } else if let Ok(new_input) = self.timer.text.parse::<u32>() {
-                                        self.timer.seconds = new_input;
-                                    } else {
-                                        self.timer.text = self.timer.seconds.to_string();
-                                    }
-                                }
+                                ui.add(egui::Slider::new(&mut self.timer.seconds, 0..=240));
+                                // if ui.text_edit_singleline(&mut self.timer.text).changed() {
+                                //     if self.timer.text == "" {
+                                //         self.timer.seconds = 0;
+                                //     } else if let Ok(new_input) = self.timer.text.parse::<u32>() {
+                                //         self.timer.seconds = new_input;
+                                //     } else {
+                                //         self.timer.text = self.timer.seconds.to_string();
+                                //     }
+                                // }
 
                                 if ui.button("Start Timer").clicked() {
                                     if self.timer.seconds > 0 {
