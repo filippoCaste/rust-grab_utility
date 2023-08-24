@@ -1,5 +1,5 @@
 use chrono::Utc;
-use eframe::egui;
+use eframe::{egui::{self, RichText}, epaint::Color32};
 use image;
 use native_dialog::FileDialog;
 use screenshots::Screen;
@@ -8,7 +8,7 @@ use std::{fs, time::Duration};
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         maximized: true,
-        decorated: false,
+        decorated: true,
         transparent: true,
         resizable: false,
         ..Default::default()
@@ -30,6 +30,8 @@ struct MyApp {
     mode_radio: Enum,
     image_viewer: bool,
     timer: Timer,
+    default_location: String,
+    options: bool
 }
 
 struct Timer {
@@ -75,6 +77,8 @@ impl Default for MyApp {
                 timer_form_open: false,
                 is_timer_running: false,
             },
+            default_location: "~".to_string(),
+            options: false,
         }
     }
 }
@@ -258,7 +262,9 @@ impl eframe::App for MyApp {
                                 }
                             }
 
-                            if ui.button("  Options  ").clicked() {}
+                            if ui.button("  Options  ").clicked() {
+                                self.options = true;
+                            }
                             if ui.button("  Capture  ").clicked() {
                                 frame.set_visible(false);
                                 self.window_hidden = true;
@@ -289,13 +295,25 @@ impl eframe::App for MyApp {
                                     .replace(" ", "")
                                     .to_string();
                                 let default_name = format!("screenshot_{}", today);
-                                let result = FileDialog::new()
+                                let result = match FileDialog::new()
+                                    .set_location(&self.default_location)
+                                    .set_filename(&default_name[..27])
+                                    .add_filter("PNG Image", &["png"])
+                                    .add_filter("JPEG Image", &["jpg", "jpeg"])
+                                    .add_filter("GIF Image", &["gif"])
+                                    .show_save_single_file() {
+                                Ok(res) => {res},
+                                Err(_) => {
+                                    FileDialog::new()
+                                    .set_location("~")
                                     .set_filename(&default_name[..27])
                                     .add_filter("PNG Image", &["png"])
                                     .add_filter("JPEG Image", &["jpg", "jpeg"])
                                     .add_filter("GIF Image", &["gif"])
                                     .show_save_single_file()
-                                    .unwrap();
+                                    .unwrap()
+                                }
+                            };
                                 match result {
                                     Some(result) => {
                                         fs::write(result.clone(), self.buffer.clone().unwrap())
@@ -362,6 +380,30 @@ impl eframe::App for MyApp {
                     ),
                 );
             });
+
+        egui::Window::new("Options")
+            .title_bar(true)
+            .frame(egui::Frame {
+                fill: egui::Color32::GRAY,
+                stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
+                inner_margin: egui::style::Margin::same(15.0),
+                rounding: egui::Rounding::same(20.0),
+                ..Default::default()
+            })
+            .resizable(true)
+            .movable(true)
+            .open(&mut self.options)
+            .show(ctx, |ui| {
+                ui.label(RichText::new("Inserisci il percorso nel quale salvare gli screenshots: ").color(Color32::BLACK));
+                let set_path_text = ui.text_edit_singleline(&mut self.default_location);
+                if set_path_text.changed() {
+                    if self.default_location == "" {
+                        self.default_location = "~".to_string();
+                    }
+                }
+                ui.label(RichText::new("Se il percorso indicato non è corretto, si verrà reindirizzati a 'home'").color(Color32::RED));
+            });
+
 
         if self.mode == true {
             let r = w.unwrap().response.rect;
