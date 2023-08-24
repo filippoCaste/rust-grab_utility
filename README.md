@@ -1,8 +1,32 @@
-# Librerie
-## Screenshots
-- screenshots: https://lib.rs/crates/screenshots
-## UI
-- mix js/rust: https://tauri.app
-- mix js/rust: https://slint.dev/
-- rust: https://docs.rs/egui/latest/egui/ (github: https://github.com/emilk/egui.git)
-- rust: https://gtk-rs.org/gtk4-rs/stable/latest/book/introduction.html
+# Panoramica
+## Crates
+- **screenshots**: https://lib.rs/crates/screenshots
+- **egui**: https://docs.rs/egui/latest/egui/ (github: https://github.com/emilk/egui.git)
+- **native-dialog**: https://docs.rs/native-dialog/latest/native_dialog/
+
+## Funzionalità
+1. [x] **Platform Support**: l'app può essere utilizzata su tutte le piattaforme.
+2. [x] **User Interface (UI)**: interfaccia utente facilmente usufruibile.
+3. [x] **Selection Options**: Riquadro di selezione della schermata per ritagliare la porzione di schermo da catturare.
+4. [ ] **Hotkey Support**: The utility should support customizable hotkeys for quick
+screen grabbing. Users should be able to set up their preferred shortcut keys.
+5. [x] **Output Format**: diversi formati supportati per il salvataggio della schermata (png, jpg, gif). Salvataggio anche negli appunti del dispositivo.
+    - [ ] manca salvare negli appunti del dispositivo
+<!-- FUNZIONALITÀ BONUS -->
+6. [ ] **Annotation Tools**: The utility should have built-in annotation tools like shapes, arrows, text, and a color picker for highlighting or redacting parts of the screen grab.
+7. [x] **Delay Timer**: tramite l'interfaccia, l'utente può impostare il delay dopo il quale la schermata sarà catturata.
+8. [x] **Save Options**: viene aperta una finestra di dialogo del file system attraverso la quale l'utente può scegliere il nome (se diverso da default) e il formato dell'immagine.
+    - [ ] manca far specificare dall'utente la default save location
+9.  [ ] **Multi-monitor Support**: The utility should be able to recognize and handle
+multiple monitors independently, allowing users to grab screens from any of the connected 
+displays.
+
+
+## Esempio di utilizzo
+Una volta lanciata l'applicazione, compaiono 4 bottoni:
+- primo: ...
+- secondo
+- terzo
+- quarto
+
+![Screenshot d'esempio](esempio.png)
