@@ -25,9 +25,12 @@ struct MyApp {
     screen_rect: RectangleCrop,
     window_hidden: bool,
     mode: bool,
-    mode_radio: Enum,
+    mode_radio: SelectionMode,
     image_viewer: bool,
     mac_bug: bool,
+    annotation: bool,
+    selection_annotation: SelectionAnnotation,
+    annotation_element: AnnotationElement,
 }
 
 struct RectangleCrop {
@@ -38,9 +41,27 @@ struct RectangleCrop {
 }
 
 #[derive(PartialEq)]
-enum Enum {
+enum SelectionMode {
     Screen,
     Selection,
+}
+
+#[derive(PartialEq)]
+enum SelectionAnnotation {
+    NotSelected,
+    Pen,
+    Rect,
+    Text,
+    Crop,
+}
+
+struct AnnotationElement {
+    stroke: egui::Stroke,
+    pen: Vec<Vec<(egui::Pos2, egui::Stroke)>>,
+    rect: Vec<Vec<(egui::Pos2, egui::Stroke)>>,
+    text: Vec<(egui::Pos2, String, egui::Stroke)>,
+    text2: String,
+    pos_text: bool,
 }
 
 impl Default for MyApp {
@@ -56,9 +77,19 @@ impl Default for MyApp {
             },
             window_hidden: false,
             mode: false,
-            mode_radio: Enum::Screen,
+            mode_radio: SelectionMode::Screen,
             image_viewer: false,
             mac_bug: false,
+            selection_annotation: SelectionAnnotation::NotSelected,
+            annotation: false,
+            annotation_element: AnnotationElement {
+                pen: Default::default(),
+                rect: Default::default(),
+                text: Default::default(),
+                stroke: egui::Stroke::new(1.0, egui::Color32::BLACK),
+                text2: "Edit this text".to_owned(),
+                pos_text: false,
+            },
         }
     }
 }
@@ -72,7 +103,7 @@ impl eframe::App for MyApp {
             self.mac_bug = false;
         }
         if self.window_hidden {
-            std::thread::sleep(Duration::from_secs(1));
+            //std::thread::sleep(Duration::from_secs(1));
             let screen = Screen::all().unwrap()[0];
             let image;
             if self.mode {
@@ -125,14 +156,22 @@ impl eframe::App for MyApp {
                     |ui| {
                         if !self.image_viewer {
                             if ui
-                                .selectable_value(&mut self.mode_radio, Enum::Screen, "  🖵  ")
+                                .selectable_value(
+                                    &mut self.mode_radio,
+                                    SelectionMode::Screen,
+                                    "  🖵  ",
+                                )
                                 .on_hover_text("Capture the entire screen")
                                 .clicked()
                             {
                                 self.mode = false;
                             };
                             if ui
-                                .selectable_value(&mut self.mode_radio, Enum::Selection, "  ⛶  ")
+                                .selectable_value(
+                                    &mut self.mode_radio,
+                                    SelectionMode::Selection,
+                                    "  ⛶  ",
+                                )
                                 .on_hover_text("Capture the selection")
                                 .clicked()
                             {
@@ -152,11 +191,13 @@ impl eframe::App for MyApp {
                             {
                                 frame.close();
                             }
-                        } else {
-                            if ui.button("  Modify  ").clicked() {}
+                        } else if self.image_viewer && !self.annotation {
+                            if ui.button("  Modify  ").clicked() {
+                                self.annotation = true;
+                            }
                             if ui.button("  Take another Screenshot  ").clicked() {
                                 self.image_viewer = false;
-                                self.mode_radio = Enum::Screen;
+                                self.mode_radio = SelectionMode::Screen;
                                 self.mode = false;
                                 frame.set_visible(false);
                                 self.mac_bug = true;
@@ -170,6 +211,47 @@ impl eframe::App for MyApp {
                                 .clicked()
                             {
                                 frame.close();
+                            }
+                        } else {
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Pen,
+                                "  🖊  ",
+                            )
+                            .on_hover_text("Draw");
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Rect,
+                                "  ☐  ",
+                            )
+                            .on_hover_text("Draw a rectangle");
+
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Text,
+                                "  Text  ",
+                            )
+                            .on_hover_text("Text");
+                            ui.label("|");
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Crop,
+                                "  ⛶  ",
+                            )
+                            .on_hover_text("Crop");
+                            ui.label("|");
+                            egui::stroke_ui(ui, &mut self.annotation_element.stroke, "Stroke");
+                            ui.label("|");
+                            if ui.button("  Cancel  ").clicked() {
+                                self.annotation_element.pen.clear();
+                                self.annotation_element.rect.clear();
+                                self.selection_annotation = SelectionAnnotation::NotSelected;
+                                self.annotation = false;
+                                self.annotation_element.text.clear();
+                            }
+                            if ui.button("  Save modify  ").clicked() {
+                                self.selection_annotation = SelectionAnnotation::NotSelected;
+                                self.annotation = false;
                             }
                         }
                     },
@@ -210,15 +292,197 @@ impl eframe::App for MyApp {
             .resizable(false)
             .open(&mut self.image_viewer)
             .show(ctx, |ui| {
-                ui.image(
-                    &self.texture.clone().unwrap(),
-                    resize_image_to_fit_container(
-                        1000.0,
-                        600.0,
-                        self.texture.clone().unwrap().size_vec2()[0],
-                        self.texture.clone().unwrap().size_vec2()[1],
-                    ),
+                // ui.image(
+                //     &self.texture.clone().unwrap(),
+                //     resize_image_to_fit_container(
+                //         1000.0,
+                //         600.0,
+                //         self.texture.clone().unwrap().size_vec2()[0],
+                //         self.texture.clone().unwrap().size_vec2()[1],
+                //     ),
+                // );
+                let dim_image = resize_image_to_fit_container(
+                    1000.0,
+                    600.0,
+                    self.texture.clone().unwrap().size_vec2()[0],
+                    self.texture.clone().unwrap().size_vec2()[1],
                 );
+                let (mut response, painter) =
+                    ui.allocate_painter(egui::vec2(dim_image.0, dim_image.1), egui::Sense::drag());
+                painter.image(
+                    self.texture.clone().unwrap().id(),
+                    egui::Rect::from_center_size(
+                        egui::Pos2::new(
+                            (frame.info().window_info.size[0]) / 2.0,
+                            (frame.info().window_info.size[1]) / 2.0,
+                        ),
+                        egui::Vec2::new(dim_image.0, dim_image.1),
+                    ),
+                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                    egui::Color32::WHITE,
+                );
+                if self.annotation {
+                    match self.selection_annotation {
+                        SelectionAnnotation::NotSelected => {}
+                        SelectionAnnotation::Pen => {
+                            response
+                                .clone()
+                                .on_hover_cursor(egui::output::CursorIcon::PointingHand);
+                            if self.annotation_element.pen.is_empty() {
+                                self.annotation_element.pen.push(vec![]);
+                            }
+
+                            let current_line = self.annotation_element.pen.last_mut().unwrap();
+
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                if current_line.last()
+                                    != Some(&(pointer_pos, self.annotation_element.stroke))
+                                {
+                                    current_line
+                                        .push((pointer_pos, self.annotation_element.stroke));
+                                    response.mark_changed();
+                                }
+                            } else if !current_line.is_empty() {
+                                self.annotation_element.pen.push(vec![]);
+                                response.mark_changed();
+                            }
+                        }
+                        SelectionAnnotation::Rect => {
+                            response
+                                .clone()
+                                .on_hover_cursor(egui::output::CursorIcon::Crosshair);
+                            if self.annotation_element.rect.is_empty() {
+                                self.annotation_element.rect.push(vec![]);
+                            }
+
+                            let current_line = self.annotation_element.rect.last_mut().unwrap();
+
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                if current_line.last()
+                                    != Some(&(pointer_pos, self.annotation_element.stroke))
+                                {
+                                    current_line
+                                        .push((pointer_pos, self.annotation_element.stroke));
+                                    response.mark_changed();
+                                }
+                            } else if !current_line.is_empty() {
+                                self.annotation_element.rect.push(vec![]);
+                                response.mark_changed();
+                            }
+                        }
+                        SelectionAnnotation::Text => {
+                            let res = egui::Area::new("text")
+                                .movable(true)
+                                .default_pos(egui::Pos2::new(
+                                    (frame.info().window_info.size[0] - 20.0) / 2.0,
+                                    (frame.info().window_info.size[1] - 20.0) / 2.0,
+                                ))
+                                .drag_bounds(egui::Rect::from_center_size(
+                                    egui::Pos2::new(
+                                        (frame.info().window_info.size[0]) / 2.0,
+                                        (frame.info().window_info.size[1]) / 2.0,
+                                    ),
+                                    egui::Vec2::new(dim_image.0, dim_image.1),
+                                ))
+                                .order(egui::layers::Order::Foreground)
+                                .show(ctx, |ui| {
+                                    ui.vertical(|ui| {
+                                        ui.label(
+                                            egui::RichText::new(format!(
+                                                "{}",
+                                                self.annotation_element.text2,
+                                            ))
+                                            .color(self.annotation_element.stroke.color)
+                                            .size(
+                                                self.annotation_element.stroke.width * 20.0 + 0.1,
+                                            ),
+                                        );
+                                        ui.horizontal(|ui| {
+                                            egui::TextEdit::multiline(
+                                                &mut self.annotation_element.text2,
+                                            )
+                                            .hint_text("Hello!")
+                                            .show(ui);
+                                            if ui.button("save").clicked() {
+                                                self.annotation_element.pos_text = true;
+                                            };
+                                        })
+                                    });
+                                });
+                            if self.annotation_element.pos_text {
+                                self.annotation_element.pos_text = false;
+                                let r = res.response.rect;
+                                self.annotation_element.text.push((
+                                    egui::Pos2::new(r.left(), r.top()),
+                                    self.annotation_element.text2.clone(),
+                                    self.annotation_element.stroke.clone(),
+                                ));
+                            }
+                        }
+                        SelectionAnnotation::Crop => {
+                            egui::Window::new("resize2")
+                                .title_bar(false)
+                                .default_size(egui::vec2(320.0, 240.0))
+                                .resizable(true)
+                                .movable(true)
+                                .default_pos(egui::Pos2::new(
+                                    (frame.info().window_info.size[0] - 320.0) / 2.0,
+                                    (frame.info().window_info.size[1] - 240.0) / 2.0,
+                                ))
+                                .drag_bounds(egui::Rect::from_center_size(
+                                    egui::Pos2::new(
+                                        (frame.info().window_info.size[0]) / 2.0,
+                                        (frame.info().window_info.size[1]) / 2.0,
+                                    ),
+                                    egui::Vec2::new(dim_image.0, dim_image.1),
+                                ))
+                                .frame(egui::Frame {
+                                    // fill: egui::Color32::TRANSPARENT,
+                                    stroke: egui::Stroke::new(1.5, egui::Color32::WHITE),
+                                    shadow: egui::epaint::Shadow::small_light(),
+                                    ..Default::default()
+                                })
+                                .show(ctx, |ui| {
+                                    ui.allocate_space(ui.available_size());
+                                });
+                        }
+                    }
+                }
+                let pen = self
+                    .annotation_element
+                    .pen
+                    .iter()
+                    .filter(|line| line.len() >= 2)
+                    .map(|line| {
+                        let points: Vec<egui::Pos2> = line.iter().map(|p| p.0).collect();
+                        let stroke = line[0].1;
+                        egui::Shape::line(points, stroke)
+                    });
+                let rect = self
+                    .annotation_element
+                    .rect
+                    .iter()
+                    .filter(|line| line.len() >= 2)
+                    .map(|line| {
+                        let rect = egui::Rect::from_two_pos(
+                            line.first().unwrap().0,
+                            line.last().unwrap().0,
+                        );
+                        egui::Shape::rect_stroke(rect, egui::Rounding::none(), line[0].1)
+                    });
+
+                for el in self.annotation_element.text.clone() {
+                    painter.text(
+                        el.0,
+                        egui::Align2::LEFT_TOP,
+                        el.1,
+                        egui::FontId::proportional(el.2.width * 20.0 + 0.1),
+                        el.2.color,
+                    );
+                }
+
+                painter.extend(pen);
+                painter.extend(rect);
             });
 
         if self.mode == true {
@@ -254,12 +518,10 @@ fn resize_image_to_fit_container(
     let image_ratio = image_width / image_height;
 
     if container_ratio > image_ratio {
-        // Il contenitore è più largo rispetto all'immagine, quindi adattiamo l'altezza dell'immagine.
         let new_height = container_height;
         let new_width = new_height * image_ratio;
         (new_width, new_height)
     } else {
-        // Il contenitore è più alto o ha lo stesso rapporto dell'immagine, quindi adattiamo la larghezza dell'immagine.
         let new_width = container_width;
         let new_height = new_width / image_ratio;
         (new_width, new_height)
