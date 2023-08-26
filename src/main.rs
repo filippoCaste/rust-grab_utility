@@ -31,6 +31,7 @@ struct MyApp {
     annotation: bool,
     selection_annotation: SelectionAnnotation,
     annotation_element: AnnotationElement,
+    last_modify: Vec<SelectionAnnotation>,
 }
 
 struct RectangleCrop {
@@ -46,19 +47,25 @@ enum SelectionMode {
     Selection,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum SelectionAnnotation {
     NotSelected,
     Pen,
     Rect,
+    Arrow,
     Text,
     Crop,
+    Line,
+    Circle,
 }
 
 struct AnnotationElement {
     stroke: egui::Stroke,
     pen: Vec<Vec<(egui::Pos2, egui::Stroke)>>,
     rect: Vec<Vec<(egui::Pos2, egui::Stroke)>>,
+    circle: Vec<Vec<(egui::Pos2, egui::Stroke)>>,
+    arrow: Vec<Vec<(egui::Pos2, egui::Stroke)>>,
+    line: Vec<Vec<(egui::Pos2, egui::Stroke)>>,
     text: Vec<(egui::Pos2, String, egui::Stroke)>,
     text2: String,
     pos_text: bool,
@@ -81,10 +88,14 @@ impl Default for MyApp {
             image_viewer: false,
             mac_bug: false,
             selection_annotation: SelectionAnnotation::NotSelected,
+            last_modify: Default::default(),
             annotation: false,
             annotation_element: AnnotationElement {
                 pen: Default::default(),
                 rect: Default::default(),
+                circle: Default::default(),
+                arrow: Default::default(),
+                line: Default::default(),
                 text: Default::default(),
                 stroke: egui::Stroke::new(1.0, egui::Color32::BLACK),
                 text2: "Edit this text".to_owned(),
@@ -221,11 +232,28 @@ impl eframe::App for MyApp {
                             .on_hover_text("Draw");
                             ui.selectable_value(
                                 &mut self.selection_annotation,
+                                SelectionAnnotation::Line,
+                                "  /  ",
+                            )
+                            .on_hover_text("Draw a line");
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Arrow,
+                                "  ↖  ",
+                            )
+                            .on_hover_text("Draw an arrow");
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
                                 SelectionAnnotation::Rect,
                                 "  ☐  ",
                             )
                             .on_hover_text("Draw a rectangle");
-
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Circle,
+                                "  ⭕  ",
+                            )
+                            .on_hover_text("Draw a circle");
                             ui.selectable_value(
                                 &mut self.selection_annotation,
                                 SelectionAnnotation::Text,
@@ -242,12 +270,51 @@ impl eframe::App for MyApp {
                             ui.label("|");
                             egui::stroke_ui(ui, &mut self.annotation_element.stroke, "Stroke");
                             ui.label("|");
+                            if ui.button("  ⟲  ").clicked() {
+                                if let Some(last) = self.last_modify.pop() {
+                                    match last {
+                                        SelectionAnnotation::NotSelected => {}
+                                        SelectionAnnotation::Pen => {
+                                            self.annotation_element
+                                                .pen
+                                                .remove(self.annotation_element.pen.len() - 2);
+                                        }
+                                        SelectionAnnotation::Line => {
+                                            self.annotation_element
+                                                .line
+                                                .remove(self.annotation_element.line.len() - 2);
+                                        }
+                                        SelectionAnnotation::Arrow => {
+                                            self.annotation_element
+                                                .arrow
+                                                .remove(self.annotation_element.arrow.len() - 2);
+                                        }
+                                        SelectionAnnotation::Rect => {
+                                            self.annotation_element
+                                                .rect
+                                                .remove(self.annotation_element.rect.len() - 2);
+                                        }
+                                        SelectionAnnotation::Circle => {
+                                            self.annotation_element
+                                                .circle
+                                                .remove(self.annotation_element.circle.len() - 2);
+                                        }
+                                        SelectionAnnotation::Text => {
+                                            self.annotation_element.text.pop();
+                                        }
+                                        SelectionAnnotation::Crop => {}
+                                    }
+                                }
+                            }
                             if ui.button("  Cancel  ").clicked() {
                                 self.annotation_element.pen.clear();
                                 self.annotation_element.rect.clear();
+                                self.annotation_element.text.clear();
+                                self.annotation_element.arrow.clear();
+                                self.annotation_element.line.clear();
+                                self.annotation_element.circle.clear();
                                 self.selection_annotation = SelectionAnnotation::NotSelected;
                                 self.annotation = false;
-                                self.annotation_element.text.clear();
                             }
                             if ui.button("  Save modify  ").clicked() {
                                 self.selection_annotation = SelectionAnnotation::NotSelected;
@@ -345,6 +412,55 @@ impl eframe::App for MyApp {
                             } else if !current_line.is_empty() {
                                 self.annotation_element.pen.push(vec![]);
                                 response.mark_changed();
+                                self.last_modify.push(SelectionAnnotation::Pen);
+                            }
+                        }
+                        SelectionAnnotation::Line => {
+                            response
+                                .clone()
+                                .on_hover_cursor(egui::output::CursorIcon::Crosshair);
+                            if self.annotation_element.line.is_empty() {
+                                self.annotation_element.line.push(vec![]);
+                            }
+
+                            let current_line = self.annotation_element.line.last_mut().unwrap();
+
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                if current_line.last()
+                                    != Some(&(pointer_pos, self.annotation_element.stroke))
+                                {
+                                    current_line
+                                        .push((pointer_pos, self.annotation_element.stroke));
+                                    response.mark_changed();
+                                }
+                            } else if !current_line.is_empty() {
+                                self.annotation_element.line.push(vec![]);
+                                response.mark_changed();
+                                self.last_modify.push(SelectionAnnotation::Line);
+                            }
+                        }
+                        SelectionAnnotation::Arrow => {
+                            response
+                                .clone()
+                                .on_hover_cursor(egui::output::CursorIcon::Crosshair);
+                            if self.annotation_element.arrow.is_empty() {
+                                self.annotation_element.arrow.push(vec![]);
+                            }
+
+                            let current_line = self.annotation_element.arrow.last_mut().unwrap();
+
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                if current_line.last()
+                                    != Some(&(pointer_pos, self.annotation_element.stroke))
+                                {
+                                    current_line
+                                        .push((pointer_pos, self.annotation_element.stroke));
+                                    response.mark_changed();
+                                }
+                            } else if !current_line.is_empty() {
+                                self.annotation_element.arrow.push(vec![]);
+                                response.mark_changed();
+                                self.last_modify.push(SelectionAnnotation::Arrow);
                             }
                         }
                         SelectionAnnotation::Rect => {
@@ -368,6 +484,31 @@ impl eframe::App for MyApp {
                             } else if !current_line.is_empty() {
                                 self.annotation_element.rect.push(vec![]);
                                 response.mark_changed();
+                                self.last_modify.push(SelectionAnnotation::Rect);
+                            }
+                        }
+                        SelectionAnnotation::Circle => {
+                            response
+                                .clone()
+                                .on_hover_cursor(egui::output::CursorIcon::Crosshair);
+                            if self.annotation_element.circle.is_empty() {
+                                self.annotation_element.circle.push(vec![]);
+                            }
+
+                            let current_line = self.annotation_element.circle.last_mut().unwrap();
+
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                if current_line.last()
+                                    != Some(&(pointer_pos, self.annotation_element.stroke))
+                                {
+                                    current_line
+                                        .push((pointer_pos, self.annotation_element.stroke));
+                                    response.mark_changed();
+                                }
+                            } else if !current_line.is_empty() {
+                                self.annotation_element.circle.push(vec![]);
+                                response.mark_changed();
+                                self.last_modify.push(SelectionAnnotation::Circle);
                             }
                         }
                         SelectionAnnotation::Text => {
@@ -405,6 +546,7 @@ impl eframe::App for MyApp {
                                             .show(ui);
                                             if ui.button("save").clicked() {
                                                 self.annotation_element.pos_text = true;
+                                                self.last_modify.push(SelectionAnnotation::Text);
                                             };
                                         })
                                     });
@@ -417,6 +559,7 @@ impl eframe::App for MyApp {
                                     self.annotation_element.text2.clone(),
                                     self.annotation_element.stroke.clone(),
                                 ));
+                                self.annotation_element.text2 = "Edit this text".to_string();
                             }
                         }
                         SelectionAnnotation::Crop => {
@@ -470,6 +613,34 @@ impl eframe::App for MyApp {
                         );
                         egui::Shape::rect_stroke(rect, egui::Rounding::none(), line[0].1)
                     });
+                let circle = self
+                    .annotation_element
+                    .circle
+                    .iter()
+                    .filter(|line| line.len() >= 2)
+                    .map(|line| {
+                        egui::Shape::circle_stroke(
+                            line.first().unwrap().0,
+                            line.first().unwrap().0.distance(line.last().unwrap().0),
+                            line[0].1,
+                        )
+                    });
+                let line = self
+                    .annotation_element
+                    .line
+                    .iter()
+                    .filter(|line| line.len() >= 2)
+                    .map(|line| {
+                        let vec = [line.first().unwrap().0, line.last().unwrap().0];
+                        egui::Shape::line_segment(vec, line[0].1)
+                    });
+
+                for el in self.annotation_element.arrow.clone() {
+                    if el.first().is_some() && el.last().is_some() {
+                        let vec = el.first().unwrap().0 - el.last().unwrap().0;
+                        painter.arrow(el.first().unwrap().0, -vec, el[0].1);
+                    }
+                }
 
                 for el in self.annotation_element.text.clone() {
                     painter.text(
@@ -482,7 +653,9 @@ impl eframe::App for MyApp {
                 }
 
                 painter.extend(pen);
+                painter.extend(line);
                 painter.extend(rect);
+                painter.extend(circle);
             });
 
         if self.mode == true {
