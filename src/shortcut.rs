@@ -41,7 +41,7 @@ impl ShortCut {
         }
     }
 
-   pub fn to_string(&self, ctx: &egui::Context) -> String {
+    pub fn to_string(&self, ctx: &egui::Context) -> String {
         let mut output = self.name.clone();
         output.push_str(&"->".to_string());
         output.push_str(&ctx.format_shortcut(&self.shortcut));
@@ -55,14 +55,14 @@ impl ShortCutSet {
 
         let s_set_entire_screen = ShortCut {
             name: "Full screen".to_string(),
-            shortcut: KeyboardShortcut::new(Modifiers::CTRL, Key::F),
+            shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::F),
             is_active: true,
             wants_image_viewer: false,
             action: Action::SetEntireScreen,
         };
         let s_set_selection = ShortCut {
             name: "Set the selection".to_string(),
-            shortcut: KeyboardShortcut::new(Modifiers::CTRL, Key::ArrowDown),
+            shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::ArrowDown),
             is_active: true,
             wants_image_viewer: false,
             action: Action::SetSelection,
@@ -70,56 +70,56 @@ impl ShortCutSet {
 
         let s_start_timer = ShortCut {
             name: "Start timer".to_string(),
-            shortcut: KeyboardShortcut::new(Modifiers::CTRL, Key::T),
+            shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::T),
             is_active: true,
             wants_image_viewer: false,
             action: Action::StartTimer,
         };
         let s_cancel_timer = ShortCut {
             name: "Cancek timer".to_string(),
-            shortcut: KeyboardShortcut::new(Modifiers::CTRL | Modifiers::ALT, Key::T),
+            shortcut: KeyboardShortcut::new(Modifiers::COMMAND | Modifiers::ALT, Key::T),
             is_active: true,
             wants_image_viewer: false,
             action: Action::CancelTimer,
         };
         let s_options = ShortCut {
             name: "Open Options".to_string(),
-            shortcut: KeyboardShortcut::new(Modifiers::CTRL, Key::O),
+            shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::O),
             is_active: true,
             wants_image_viewer: false,
             action: Action::Options,
         };
         let s_capture = ShortCut {
             name: "Do the screenshot".to_string(),
-            shortcut: KeyboardShortcut::new(Modifiers::CTRL, Key::C),
+            shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::C),
             is_active: true,
             wants_image_viewer: false,
             action: Action::Capture,
         };
         let s_close = ShortCut {
             name: "Close".to_string(),
-            shortcut: KeyboardShortcut::new(Modifiers::CTRL, Key::X),
+            shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::X),
             is_active: true,
             wants_image_viewer: false,
             action: Action::Close,
         };
         let s_modify = ShortCut {
             name: "Modify".to_string(),
-            shortcut: KeyboardShortcut::new(Modifiers::CTRL, Key::M),
+            shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::M),
             is_active: true,
             wants_image_viewer: true,
             action: Action::Modify,
         };
         let s_another_screenshot = ShortCut {
             name: "Take another screenshot".to_string(),
-            shortcut: KeyboardShortcut::new(Modifiers::CTRL, Key::A),
+            shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::A),
             is_active: true,
             wants_image_viewer: true,
             action: Action::TakeAnotherScreenshot,
         };
         let s_save = ShortCut {
             name: "Save".to_string(),
-            shortcut: KeyboardShortcut::new(Modifiers::CTRL, Key::S),
+            shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::S),
             is_active: true,
             wants_image_viewer: true,
             action: Action::Save,
@@ -141,12 +141,12 @@ impl ShortCutSet {
     }
     pub fn listener(&self, ctx: &egui::Context, is_image: bool) -> Option<Action> {
         for sc in self.set.iter() {
-            if !sc.wants_image_viewer && sc.is_active{
+            if !sc.wants_image_viewer && sc.is_active {
                 if let Some(opt_action) = sc.listener_shortcut(ctx) {
                     return Some(opt_action);
                 }
             } else {
-                if sc.wants_image_viewer == is_image && sc.is_active{
+                if sc.wants_image_viewer == is_image && sc.is_active {
                     if let Some(opt_action) = sc.listener_shortcut(ctx) {
                         return Some(opt_action);
                     }
@@ -165,10 +165,10 @@ impl ShortCutSet {
         output
     }
 
-    pub fn to_vec_mut(&mut self) ->Vec<&mut ShortCut> {
+    pub fn to_vec_mut(&mut self) -> Vec<&mut ShortCut> {
         let mut output = Vec::new();
         for sc in self.set.iter_mut() {
-            output.push( sc);
+            output.push(sc);
         }
         output
     }
