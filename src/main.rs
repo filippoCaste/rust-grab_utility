@@ -1,9 +1,11 @@
 use eframe::egui;
+mod  shortcut;
 use image;
 use native_dialog::FileDialog;
 use screenshots::Screen;
 use std::{fs, time::Duration};
-
+use shortcut::Action as Action;
+use shortcut::ShortCutSet as ShortCutSet;
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         maximized: true,
@@ -29,6 +31,9 @@ struct MyApp {
     mode_radio: Enum,
     image_viewer: bool,
     timer: Timer,
+    show_options: bool,
+    shortcut_set:ShortCutSet,
+
 }
 
 struct Timer {
@@ -36,7 +41,17 @@ struct Timer {
     text: String,
     timer_form_open: bool,
     is_timer_running: bool,
-    last_decrement_time: Option<std::time::Instant>,
+}
+
+impl Timer {
+    fn reset() -> Self {
+        Self {
+            seconds: 0,
+            text: "".to_string(),
+            timer_form_open: false,
+            is_timer_running: false,
+        }
+    }
 }
 
 struct RectangleCrop {
@@ -51,6 +66,8 @@ enum Enum {
     Screen,
     Selection,
 }
+
+
 
 impl Default for MyApp {
     fn default() -> Self {
@@ -67,25 +84,44 @@ impl Default for MyApp {
             mode: false,
             mode_radio: Enum::Screen,
             image_viewer: false,
-            timer: Timer {
-                seconds: 0,
-                text: "".to_string(),
-                last_decrement_time: None,
-                timer_form_open: false,
-                is_timer_running: false,
-            },
+            timer: Timer::reset(),
+            show_options: false,
+            shortcut_set:ShortCutSet::default(),
+
+        
         }
     }
 }
+impl MyApp {
+    fn run_action(&mut self, action: Action, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        match action {
+            Action::SetEntireScreen=>{
 
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        if self.window_hidden {
-            std::thread::sleep(Duration::from_secs(1));
-            let screen = Screen::all().unwrap()[0];
-            let image;
-            if self.mode {
-                image = screen
+                self.mode=false;
+            }
+            Action::SetSelection=>{
+
+                self.mode=true;
+            }
+            Action::CaptureScreen => {
+                std::thread::sleep(Duration::from_millis(200));
+                let screen = Screen::all().unwrap()[0];
+                let image = screen.capture().unwrap();
+                self.buffer = Some(image.to_png(None).unwrap());
+                self.texture = Some(ctx.load_texture(
+                    "my-image",
+                    load_image_from_memory(&self.buffer.clone().unwrap()).unwrap(),
+                    Default::default(),
+                ));
+
+                self.window_hidden = false;
+                self.image_viewer = true;
+                self.mode = false;
+            }
+            Action::CaptureSelection => {
+                std::thread::sleep(Duration::from_millis(160));
+                let screen = Screen::all().unwrap()[0];
+                let image = screen
                     .capture_area(
                         self.screen_rect.x_left.floor() as i32,
                         self.screen_rect.y_left.floor() as i32,
@@ -93,19 +129,113 @@ impl eframe::App for MyApp {
                         self.screen_rect.height.floor() as u32,
                     )
                     .unwrap();
-            } else {
-                image = screen.capture().unwrap();
-            }
-            self.buffer = Some(image.to_png(None).unwrap());
-            self.texture = Some(ctx.load_texture(
-                "my-image",
-                load_image_from_memory(&self.buffer.clone().unwrap()).unwrap(),
-                Default::default(),
-            ));
+                self.buffer = Some(image.to_png(None).unwrap());
+                self.texture = Some(ctx.load_texture(
+                    "my-image",
+                    load_image_from_memory(&self.buffer.clone().unwrap()).unwrap(),
+                    Default::default(),
+                ));
 
-            self.window_hidden = false;
-            self.image_viewer = true;
-            self.mode = false;
+                self.window_hidden = false;
+                self.image_viewer = true;
+                self.mode = false;
+                frame.set_visible(true);
+            }
+            Action::SettingTimer => {
+                if self.timer.text == "" {
+                    self.timer.seconds = 0;
+                } else if let Ok(new_input) = self.timer.text.parse::<u32>() {
+                    self.timer.seconds = new_input;
+                } else {
+                    self.timer.text = self.timer.seconds.to_string();
+                }
+            }
+            Action::StartTimer => {
+                self.timer.timer_form_open = false;
+                self.timer.is_timer_running = true;
+                if self.timer.seconds > 0 {
+                    std::thread::sleep(Duration::from_secs(1));
+                    self.timer.seconds -= 1;
+
+                    if self.timer.seconds <= 0 {
+                        frame.set_visible(false);
+                        self.timer = Timer::reset();
+                        self.run_action(Action::Capture, ctx, frame)
+                    }
+
+                    ctx.request_repaint();
+                }
+            }
+            Action::CancelTimer => {
+                self.timer = Timer::reset();
+            }
+            Action::Options => {
+                self.show_options = true;
+                if self.show_options{
+                    egui::Window::new("Options").show(ctx, |ui| {
+                    
+                        if ui.button("show shortcut").clicked() || self.shortcut_set.show {
+                            self.shortcut_set.show=true;
+                           for shortcut in self.shortcut_set.to_vec_mut(){
+                            ui.label(shortcut.to_string(ctx));
+                            ui.checkbox( &mut shortcut.is_active, "actived");
+                           }
+                           if ui.button("close sortcut").clicked(){
+                            self.shortcut_set.show=false;
+                        }
+                        }
+
+                        if ui.button("close options").clicked(){
+                            self.shortcut_set.show=false;
+                            self.show_options = false;
+                        }
+                    });
+                }
+            
+            }
+            Action::Capture => {
+                self.window_hidden = true;
+                frame.set_visible(false);
+            }
+            Action::Close => {
+                frame.close();
+            }
+            Action::Modify => {}
+            Action::TakeAnotherScreenshot => {
+                self.image_viewer = false;
+                if self.mode_radio == Enum::Selection {
+                    self.mode = true;
+                } else {
+                    self.mode = false;
+                }
+            }
+            Action::Save => {
+                let result = FileDialog::new()
+                    .add_filter("PNG Image", &["png"])
+                    .add_filter("JPEG Image", &["jpg", "jpeg"])
+                    .add_filter("GIF Image", &["gif"])
+                    .show_save_single_file()
+                    .unwrap();
+                match result {
+                    Some(result) => {
+                        fs::write(result.clone(), self.buffer.clone().unwrap()).unwrap();
+                    }
+                    None => {}
+                };
+            }
+        }
+    }
+}
+
+impl eframe::App for MyApp {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if self.window_hidden {
+            if self.mode {
+                self.run_action(Action::CaptureSelection, ctx, frame);
+            } else {
+                self.run_action(Action::CaptureScreen, ctx, frame)
+            }
+
             frame.set_visible(true);
         }
 
@@ -132,7 +262,12 @@ impl eframe::App for MyApp {
                         cross_justify: true,
                     },
                     |ui| {
-                        //  let mut text = self.timer.seconds.to_string();
+
+                        match self.shortcut_set.listener(ctx,self.image_viewer){
+                            Some(action)=>self.run_action(action, ctx, frame),
+                            None=>{}
+                        }
+                       
 
                         if !self.image_viewer {
                             if ui
@@ -140,15 +275,17 @@ impl eframe::App for MyApp {
                                 .on_hover_text("Capture the entire screen")
                                 .clicked()
                             {
-                                self.mode = false;
+                                self.run_action(Action::SetEntireScreen, ctx, frame);
                             };
+
                             if ui
                                 .selectable_value(&mut self.mode_radio, Enum::Selection, "  ⛶  ")
                                 .on_hover_text("Capture the selection")
                                 .clicked()
                             {
-                                self.mode = true;
+                                self.run_action(Action::SetSelection, ctx, frame)
                             };
+
                             if ui
                                 .button(" 🕓 ")
                                 .on_hover_text("Take a screenshot with timer")
@@ -160,106 +297,42 @@ impl eframe::App for MyApp {
                             if self.timer.timer_form_open {
                                 ui.label("Timer (seconds):");
                                 if ui.text_edit_singleline(&mut self.timer.text).changed() {
-                                    if self.timer.text == "" {
-                                        self.timer.seconds = 0;
-                                    } else if let Ok(new_input) = self.timer.text.parse::<u32>() {
-                                        self.timer.seconds = new_input;
-                                    } else {
-                                        self.timer.text = self.timer.seconds.to_string();
-                                    }
+                                    self.run_action(Action::SettingTimer, ctx, frame);
                                 }
 
                                 if ui.button("Start Timer").clicked() {
-                                    if self.timer.seconds > 0 {
-                                        self.timer.timer_form_open = false;
-                                        self.timer.is_timer_running = true;
-                                    } else {
-                                        frame.set_visible(false);
-                                        self.window_hidden = true;
-                                    }
+                                    /*
+                                    N.B: il bottone ha il solo compito di comunicare l'intenzione di avviare il timer.
+                                         Sarà poi il blocco 'if self.timer.is_timer_running { }' ad attivare
+                                         effettivamente il timer decrementando i secondi.
+                                     */
+                                    self.timer.is_timer_running = true
                                 }
 
                                 if ui.button("Cancel").clicked() {
-                                    self.timer.timer_form_open = false;
-                                    self.timer.seconds = 0;
-                                    self.timer.text = "".to_string();
-                                    self.timer.is_timer_running = false;
+                                    self.run_action(Action::CancelTimer, ctx, frame);
                                 }
                             }
 
                             if self.timer.is_timer_running {
-                                /*
-                                Metodo coi thread -- la label non appare
-
-                                 ui.label(format!("screenshot tra: {}", self.timer.seconds));
-
-                                   let seconds = self.timer.seconds;
-                                   let (sx, rx) = std::sync::mpsc::channel::<u32>();
-                                   let timer_thread = thread::spawn(move || {
-                                       for _ in 1..=seconds {
-                                           sx.send(1).unwrap();
-                                           thread::sleep(Duration::from_secs(1));
-                                       }
-                                   });
-
-                                   for _ in rx {
-                                       self.timer.seconds -= 1;
-                                       ctx.request_repaint();
-                                       if self.timer.seconds == 0 {
-                                           frame.set_visible(false);
-                                           self.window_hidden = true;
-                                       }
-                                   }
-
-                                   timer_thread.join().unwrap();
-
-                                   Metodo col ciclo -- la label non compare
-
-                                   if let Some(_) = self.timer.last_decrement_time {
-                                       let mut start_time = self.timer.last_decrement_time.unwrap();
-
-
-                                       while self.timer.seconds > 0 {
-                                           let elapsed_time = start_time.elapsed().as_secs() as u32;
-
-                                           if elapsed_time >= 1 {
-                                               self.timer.seconds -= elapsed_time;
-
-                                               start_time = std::time::Instant::now();
-                                               if self.timer.seconds <= 0 {
-                                                   self.timer.seconds = 0;
-                                                   self.timer.is_timer_running = false;
-                                                   frame.set_visible(false);
-                                                   self.window_hidden = true;
-                                               }
-                                           }
-                                       }
-
-                                   }
-
-
-                                   */
                                 ui.label(format!("Screenshot tra: {}", self.timer.seconds - 1));
+                                self.run_action(Action::StartTimer, ctx, frame);
 
-                                if self.timer.seconds > 0 {
-                                    std::thread::sleep(Duration::from_secs(1));
-                                    self.timer.seconds -= 1;
-                                    ctx.request_repaint();
-                                }
-
-                                if self.timer.seconds <= 0 {
-                                    self.timer.seconds = 0;
-                                    self.timer.text = "".to_string();
-                                    self.timer.is_timer_running = false;
-                                    frame.set_visible(false);
-                                    self.window_hidden = true;
+                                if ui.button("Cancel").clicked() {
+                                    self.run_action(Action::CancelTimer, ctx, frame);
                                 }
                             }
 
-                            if ui.button("  Options  ").clicked() {}
+                            if ui.button("  Options  ").clicked() {
+                              self.run_action(Action::Options, ctx, frame)
+                            }
+
+                            if self.show_options {
+                                self.run_action(Action::Options, ctx, frame)
+                            }
+
                             if ui.button("  Capture  ").clicked() {
-                                frame.set_visible(false);
-                                self.window_hidden = true;
+                                self.run_action(Action::Capture, ctx, frame);
                             }
                             if ui
                                 .add(
@@ -268,32 +341,20 @@ impl eframe::App for MyApp {
                                 .on_hover_text("Close")
                                 .clicked()
                             {
-                                frame.close();
+                                self.run_action(Action::Close, ctx, frame);
                             }
                         } else {
-                            if ui.button("  Modify  ").clicked() {}
+                            
+                            
+
+                            if ui.button("  Modify  ").clicked() {
+                                self.run_action(Action::Modify, ctx, frame);
+                            }
                             if ui.button("  Take another Screenshot  ").clicked() {
-                                self.image_viewer = false;
-                                if self.mode_radio == Enum::Selection {
-                                    self.mode = true;
-                                } else {
-                                    self.mode = false;
-                                }
+                                self.run_action(Action::TakeAnotherScreenshot, ctx, frame);
                             }
                             if ui.button("  Save  ").clicked() {
-                                let result = FileDialog::new()
-                                    .add_filter("PNG Image", &["png"])
-                                    .add_filter("JPEG Image", &["jpg", "jpeg"])
-                                    .add_filter("GIF Image", &["gif"])
-                                    .show_save_single_file()
-                                    .unwrap();
-                                match result {
-                                    Some(result) => {
-                                        fs::write(result.clone(), self.buffer.clone().unwrap())
-                                            .unwrap();
-                                    }
-                                    None => {}
-                                };
+                                self.run_action(Action::Save, ctx, frame);
                             }
                             if ui
                                 .add(
@@ -302,7 +363,7 @@ impl eframe::App for MyApp {
                                 .on_hover_text("Close")
                                 .clicked()
                             {
-                                frame.close();
+                                self.run_action(Action::Close, ctx, frame);
                             }
                         }
                     },
@@ -398,3 +459,6 @@ fn resize_image_to_fit_container(
         (new_width, new_height)
     }
 }
+
+ 
+ 
