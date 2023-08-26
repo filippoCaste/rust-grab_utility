@@ -141,17 +141,11 @@ impl ShortCutSet {
     }
     pub fn listener(&self, ctx: &egui::Context, is_image: bool) -> Option<Action> {
         for sc in self.set.iter() {
-            if !sc.wants_image_viewer && sc.is_active {
+            if sc.wants_image_viewer == is_image && sc.is_active {
                 if let Some(opt_action) = sc.listener_shortcut(ctx) {
                     return Some(opt_action);
                 }
-            } else {
-                if sc.wants_image_viewer == is_image && sc.is_active {
-                    if let Some(opt_action) = sc.listener_shortcut(ctx) {
-                        return Some(opt_action);
-                    }
-                }
-            }
+            } 
         }
         None
     }
