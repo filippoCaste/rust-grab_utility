@@ -180,6 +180,7 @@ impl eframe::App for MyApp {
                                  ui.label(format!("screenshot tra: {}", self.timer.get_seconds()));
 
                                    let seconds = self.timer.get_seconds();
+
                                    let (sx, rx) = std::sync::mpsc::channel::<u32>();
                                    let timer_thread = thread::spawn(move || {
                                        for _ in 1..=seconds {
@@ -203,8 +204,6 @@ impl eframe::App for MyApp {
 
                                    if let Some(_) = self.timer.last_decrement_time {
                                        let mut start_time = self.timer.last_decrement_time.unwrap();
-
-
                                        while self.timer.get_seconds() > 0 {
                                            let elapsed_time = start_time.elapsed().as_secs() as u32;
 
@@ -273,7 +272,6 @@ impl eframe::App for MyApp {
                                     .to_string();
                                 format!("screenshot_{}", today)
                                 }).join().expect("Fail to compute date");
-
                                 let result = match FileDialog::new()
                                     .set_location(&self.default_location)
                                     .set_filename(&default_name[..27])
