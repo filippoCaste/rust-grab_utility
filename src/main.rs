@@ -2,8 +2,13 @@ use chrono::Utc;
 use eframe::{egui::{self, RichText}, epaint::Color32};
 use image;
 use native_dialog::FileDialog;
-use screenshots::Screen;
 use std::{fs, time::Duration};
+
+pub mod schermi;
+pub mod timer;
+
+use schermi::schermi::Schermi;
+use timer::timer::Timer;
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -31,15 +36,8 @@ struct MyApp {
     image_viewer: bool,
     timer: Timer,
     default_location: String,
-    options: bool
-}
-
-struct Timer {
-    seconds: u32,
-    text: String,
-    timer_form_open: bool,
-    is_timer_running: bool,
-    last_decrement_time: Option<std::time::Instant>,
+    show_options: bool,
+    schermi: Schermi,
 }
 
 struct RectangleCrop {
@@ -70,15 +68,10 @@ impl Default for MyApp {
             mode: false,
             mode_radio: Enum::Screen,
             image_viewer: false,
-            timer: Timer {
-                seconds: 0,
-                text: "".to_string(),
-                last_decrement_time: None,
-                timer_form_open: false,
-                is_timer_running: false,
-            },
+            timer: Timer::new(),
             default_location: "~".to_string(),
-            options: false,
+            show_options: false,
+            schermi: Schermi::new(),
         }
     }
 }
@@ -86,8 +79,8 @@ impl Default for MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if self.window_hidden {
-            std::thread::sleep(Duration::from_millis(120));
-            let screen = Screen::all().unwrap()[0];
+            std::thread::sleep(Duration::from_millis(300));
+            let screen = self.schermi.get_screen();
             let image;
             if self.mode {
                 image = screen
@@ -137,7 +130,7 @@ impl eframe::App for MyApp {
                         cross_justify: true,
                     },
                     |ui| {
-                        //  let mut text = self.timer.seconds.to_string();
+                        //  let mut text = self.timer.get_seconds().to_string();
 
                         if !self.image_viewer {
                             if ui
@@ -159,26 +152,16 @@ impl eframe::App for MyApp {
                                 .on_hover_text("Take a screenshot with timer")
                                 .clicked()
                             {
-                                self.timer.timer_form_open = true;
+                                self.timer.open_timer_form();
                             }
 
-                            if self.timer.timer_form_open {
+                            if self.timer.is_timer_form_open() {
                                 ui.label("Timer (seconds):");
                                 ui.add(egui::Slider::new(&mut self.timer.seconds, 0..=240));
-                                // if ui.text_edit_singleline(&mut self.timer.text).changed() {
-                                //     if self.timer.text == "" {
-                                //         self.timer.seconds = 0;
-                                //     } else if let Ok(new_input) = self.timer.text.parse::<u32>() {
-                                //         self.timer.seconds = new_input;
-                                //     } else {
-                                //         self.timer.text = self.timer.seconds.to_string();
-                                //     }
-                                // }
 
                                 if ui.button("Start Timer").clicked() {
-                                    if self.timer.seconds > 0 {
-                                        self.timer.timer_form_open = false;
-                                        self.timer.is_timer_running = true;
+                                    if self.timer.get_seconds() > 0 {
+                                        self.timer.start_timer();
                                     } else {
                                         frame.set_visible(false);
                                         self.window_hidden = true;
@@ -186,20 +169,17 @@ impl eframe::App for MyApp {
                                 }
 
                                 if ui.button("Cancel").clicked() {
-                                    self.timer.timer_form_open = false;
-                                    self.timer.seconds = 0;
-                                    self.timer.text = "".to_string();
-                                    self.timer.is_timer_running = false;
+                                    self.timer.cancel_timer();
                                 }
                             }
 
-                            if self.timer.is_timer_running {
+                            if self.timer.is_timer_running() {
                                 /*
                                 Metodo coi thread -- la label non appare
 
-                                 ui.label(format!("screenshot tra: {}", self.timer.seconds));
+                                 ui.label(format!("screenshot tra: {}", self.timer.get_seconds()));
 
-                                   let seconds = self.timer.seconds;
+                                   let seconds = self.timer.get_seconds();
                                    let (sx, rx) = std::sync::mpsc::channel::<u32>();
                                    let timer_thread = thread::spawn(move || {
                                        for _ in 1..=seconds {
@@ -209,9 +189,9 @@ impl eframe::App for MyApp {
                                    });
 
                                    for _ in rx {
-                                       self.timer.seconds -= 1;
+                                       self.timer.get_seconds() -= 1;
                                        ctx.request_repaint();
-                                       if self.timer.seconds == 0 {
+                                       if self.timer.get_seconds() == 0 {
                                            frame.set_visible(false);
                                            self.window_hidden = true;
                                        }
@@ -225,15 +205,15 @@ impl eframe::App for MyApp {
                                        let mut start_time = self.timer.last_decrement_time.unwrap();
 
 
-                                       while self.timer.seconds > 0 {
+                                       while self.timer.get_seconds() > 0 {
                                            let elapsed_time = start_time.elapsed().as_secs() as u32;
 
                                            if elapsed_time >= 1 {
-                                               self.timer.seconds -= elapsed_time;
+                                               self.timer.get_seconds() -= elapsed_time;
 
                                                start_time = std::time::Instant::now();
-                                               if self.timer.seconds <= 0 {
-                                                   self.timer.seconds = 0;
+                                               if self.timer.get_seconds() <= 0 {
+                                                   self.timer.get_seconds() = 0;
                                                    self.timer.is_timer_running = false;
                                                    frame.set_visible(false);
                                                    self.window_hidden = true;
@@ -242,28 +222,24 @@ impl eframe::App for MyApp {
                                        }
 
                                    }
-
-
                                    */
-                                ui.label(format!("Screenshot tra: {}", self.timer.seconds - 1));
+                                // ui.label(format!("Screenshot tra: {}", self.timer.get_seconds() - 1));
 
-                                if self.timer.seconds > 0 {
+                                if self.timer.get_seconds() > 0 {
                                     std::thread::sleep(Duration::from_secs(1));
-                                    self.timer.seconds -= 1;
+                                    self.timer.handle_positive_timer();
                                     ctx.request_repaint();
                                 }
 
-                                if self.timer.seconds <= 0 {
-                                    self.timer.seconds = 0;
-                                    self.timer.text = "".to_string();
-                                    self.timer.is_timer_running = false;
+                                if self.timer.get_seconds() <= 0 {
+                                    self.timer.handle_negative_timer();
                                     frame.set_visible(false);
                                     self.window_hidden = true;
                                 }
                             }
 
                             if ui.button("  Options  ").clicked() {
-                                self.options = true;
+                                self.show_options = true;
                             }
                             if ui.button("  Capture  ").clicked() {
                                 frame.set_visible(false);
@@ -289,12 +265,15 @@ impl eframe::App for MyApp {
                                 }
                             }
                             if ui.button("  Save  ").clicked() {                    
-                                let today = Utc::now().to_string()
+                                let default_name = std::thread::spawn(move || {
+                                    let today = Utc::now().to_string()
                                     .replace("-", "")
                                     .replace(":", "_")
                                     .replace(" ", "")
                                     .to_string();
-                                let default_name = format!("screenshot_{}", today);
+                                format!("screenshot_{}", today)
+                                }).join().expect("Fail to compute date");
+
                                 let result = match FileDialog::new()
                                     .set_location(&self.default_location)
                                     .set_filename(&default_name[..27])
@@ -304,6 +283,7 @@ impl eframe::App for MyApp {
                                     .show_save_single_file() {
                                 Ok(res) => {res},
                                 Err(_) => {
+                                    // uncorrect path set by user
                                     FileDialog::new()
                                     .set_location("~")
                                     .set_filename(&default_name[..27])
@@ -392,7 +372,7 @@ impl eframe::App for MyApp {
             })
             .resizable(true)
             .movable(true)
-            .open(&mut self.options)
+            .open(&mut self.show_options)
             .show(ctx, |ui| {
                 ui.label(RichText::new("Inserisci il percorso nel quale salvare gli screenshots: ").color(Color32::BLACK));
                 let set_path_text = ui.text_edit_singleline(&mut self.default_location);
@@ -402,8 +382,38 @@ impl eframe::App for MyApp {
                     }
                 }
                 ui.label(RichText::new("Se il percorso indicato non è corretto, si verrà reindirizzati a 'home'").color(Color32::RED));
+
+            egui::ComboBox::from_id_source("Schermi")
+                .selected_text("Schermo da catturare")
+                .show_ui(ui, |ui| {
+                    for i in 0..self.schermi.no_screens() {
+                        let txt = format!("Schermo {}", i);
+                        ui.selectable_value(&mut self.schermi.screen_no, i, txt);
+                    }
+                });
             });
 
+        if self.timer.is_timer_running() {
+            egui::Window::new("Countdown")
+                .title_bar(false)
+                .anchor(egui::Align2::RIGHT_TOP, [0.0, 10.0])
+                .frame(egui::Frame {
+                    fill: egui::Color32::GRAY,
+                    stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
+                    inner_margin: egui::style::Margin::same(15.0),
+                    rounding: egui::Rounding::same(20.0),
+                    ..Default::default()
+                })
+                .resizable(false)
+                .show(ctx, |ui| {
+                    let txt = format!("  {}  ", self.timer.get_seconds() - 1);
+                    ui.label(
+                        RichText::new(txt)
+                            .size(40.0)
+                            .color(Color32::DARK_RED)
+                    );
+                });
+        }
 
         if self.mode == true {
             let r = w.unwrap().response.rect;
@@ -434,18 +444,22 @@ fn resize_image_to_fit_container(
     image_width: f32,
     image_height: f32,
 ) -> (f32, f32) {
-    let container_ratio = container_width / container_height;
-    let image_ratio = image_width / image_height;
+    let res = std::thread::spawn(move || {
+        let container_ratio = container_width / container_height;
+        let image_ratio = image_width / image_height;
 
-    if container_ratio > image_ratio {
-        // Il contenitore è più largo rispetto all'immagine, quindi adattiamo l'altezza dell'immagine.
-        let new_height = container_height;
-        let new_width = new_height * image_ratio;
-        (new_width, new_height)
-    } else {
-        // Il contenitore è più alto o ha lo stesso rapporto dell'immagine, quindi adattiamo la larghezza dell'immagine.
-        let new_width = container_width;
-        let new_height = new_width / image_ratio;
-        (new_width, new_height)
-    }
+        if container_ratio > image_ratio {
+            // Il contenitore è più largo rispetto all'immagine, quindi adattiamo l'altezza dell'immagine.
+            let new_height = container_height;
+            let new_width = new_height * image_ratio;
+            (new_width, new_height)
+        } else {
+            // Il contenitore è più alto o ha lo stesso rapporto dell'immagine, quindi adattiamo la larghezza dell'immagine.
+            let new_width = container_width;
+            let new_height = new_width / image_ratio;
+            (new_width, new_height)
+        }
+    });
+
+    res.join().unwrap()
 }
