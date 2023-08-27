@@ -3,6 +3,7 @@ use egui::{RichText,Color32};
 use image;
 use native_dialog::FileDialog;
 use std::{fs, time::Duration};
+use chrono::Utc;
 
 mod action;
 mod shortcut;
@@ -243,15 +244,38 @@ impl MyApp{
                 }
             }
             Action::Save => {
-                let result = FileDialog::new()
+                let default_name = std::thread::spawn(move || {
+                    let today = Utc::now().to_string()
+                    .replace("-", "")
+                    .replace(":", "_")
+                    .replace(" ", "")
+                    .to_string();
+                format!("screenshot_{}", today)
+                }).join().expect("Fail to compute date");
+                let result = match FileDialog::new()
+                    .set_location(&self.default_location)
+                    .set_filename(&default_name[..27])
+                    .add_filter("PNG Image", &["png"])
+                    .add_filter("JPEG Image", &["jpg", "jpeg"])
+                    .add_filter("GIF Image", &["gif"])
+                    .show_save_single_file() {
+                Ok(res) => {res},
+                Err(_) => {
+                    // uncorrect path set by user
+                    FileDialog::new()
+                    .set_location("~")
+                    .set_filename(&default_name[..27])
                     .add_filter("PNG Image", &["png"])
                     .add_filter("JPEG Image", &["jpg", "jpeg"])
                     .add_filter("GIF Image", &["gif"])
                     .show_save_single_file()
-                    .unwrap();
+                    .unwrap()
+                }
+            };
                 match result {
                     Some(result) => {
-                        fs::write(result.clone(), self.buffer.clone().unwrap()).unwrap();
+                        fs::write(result.clone(), self.buffer.clone().unwrap())
+                            .unwrap();
                     }
                     None => {}
                 };
@@ -358,7 +382,7 @@ impl eframe::App for MyApp {
 
                         if self.timer.is_timer_form_open() {
                             ui.label("Timer (seconds):");
-                            ui.add(egui::Slider::new(&mut self.timer.seconds, 0..=240));
+                            ui.add(egui::Slider::new(&mut self.timer.seconds, 0..=60));
 
                             if ui.button("Start Timer").clicked() {
                                 /*
@@ -375,7 +399,7 @@ impl eframe::App for MyApp {
                         }
 
                         if self.timer.is_timer_running() {
-                            ui.label(format!("Screenshot tra: {}", self.timer.seconds - 1));
+                          //  ui.label(format!("Screenshot tra: {}", self.timer.seconds - 1));
                             self.run_action(Action::StartTimer, ctx, frame);
 
                             if ui.button("Cancel").clicked() {
@@ -863,6 +887,29 @@ impl eframe::App for MyApp {
                 height: r.height(),
             };
         }
+
+        if self.timer.is_timer_running() {
+            egui::Window::new("Countdown")
+                .title_bar(false)
+                .anchor(egui::Align2::RIGHT_TOP, [0.0, 10.0])
+                .frame(egui::Frame {
+                    fill: egui::Color32::GRAY,
+                    stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
+                    inner_margin: egui::style::Margin::same(15.0),
+                    rounding: egui::Rounding::same(20.0),
+                    ..Default::default()
+                })
+                .resizable(false)
+                .show(ctx, |ui| {
+                    let txt = format!("  {}  ", self.timer.get_seconds() - 1);
+                    ui.label(
+                        RichText::new(txt)
+                            .size(40.0)
+                            .color(Color32::DARK_RED)
+                    );
+                });
+        }
+
     }
 }
 

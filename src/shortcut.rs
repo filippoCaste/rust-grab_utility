@@ -59,7 +59,7 @@ pub mod shortcut{
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::T),
                     is_active: true,
                     wants_image_viewer: false,
-                    action: Action::StartTimer,
+                    action: Action::SettingTimer,
                 };
                 let s_cancel_timer = ShortCut {
                     name: "Cancek timer".to_string(),

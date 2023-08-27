@@ -6,7 +6,7 @@ pub mod timer {
         text: String,
         timer_form_open: bool,
         is_timer_running: bool,
-        // last_decrement_time: Option<std::time::Instant>,
+       
     }
 
     impl Timer {
@@ -15,7 +15,6 @@ pub mod timer {
             Timer {    
                 seconds: 0,
                 text: "".to_string(),
-                // last_decrement_time: None,
                 timer_form_open: false,
                 is_timer_running: false
             }
