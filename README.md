@@ -7,9 +7,8 @@
 ## Funzionalità
 1. [x] **Platform Support**: l'app può essere utilizzata su tutte le piattaforme.
 2. [x] **User Interface (UI)**: interfaccia utente facilmente usufruibile.
-3. [x] **Selection Options**: Riquadro di selezione della schermata per ritagliare la porzione di schermo da catturare.
-4. [ ] **Hotkey Support**: The utility should support customizable hotkeys for quick
-screen grabbing. Users should be able to set up their preferred shortcut keys.
+3. [x] **Selection Options**: riquadro di selezione della schermata per ritagliare la porzione di schermo da catturare.
+4. [x] **Hotkey Support**: possibilità di utilizzare delle shortcut da tastiera per eseguire le operazioni.
 5. [x] **Output Format**: diversi formati supportati per il salvataggio della schermata (png, jpg, gif). Salvataggio anche negli appunti del dispositivo.
 <!-- FUNZIONALITÀ BONUS -->
 6. [ ] **Annotation Tools**: tool per disegnare sull'immagine della schermata appena acquisita e salvare le annotazioni.
