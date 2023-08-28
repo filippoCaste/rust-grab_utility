@@ -1,3 +1,4 @@
+
 use eframe::egui;
 use std::borrow::Cow;
 use egui::{RichText,Color32};
@@ -20,17 +21,11 @@ use timer::timer::Timer;
 use schermi::schermi::Schermi;
 
 
-pub mod schermi;
-pub mod timer;
-
-use schermi::schermi::Schermi;
-use timer::timer::Timer;
-
 fn main() -> Result<(), eframe::Error> {
     
     let options = eframe::NativeOptions {
         maximized: true,
-        decorated: true,
+        decorated: false,
         transparent: true,
         resizable: false,
         ..Default::default()
@@ -942,60 +937,6 @@ impl eframe::App for MyApp {
                 painter.extend(rect);
                 painter.extend(circle);
             });
-
-        egui::Window::new("Options")
-            .title_bar(true)
-            .frame(egui::Frame {
-                fill: egui::Color32::GRAY,
-                stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
-                inner_margin: egui::style::Margin::same(15.0),
-                rounding: egui::Rounding::same(20.0),
-                ..Default::default()
-            })
-            .resizable(true)
-            .movable(true)
-            .open(&mut self.show_options)
-            .show(ctx, |ui| {
-                ui.label(RichText::new("Inserisci il percorso nel quale salvare gli screenshots: ").color(Color32::BLACK));
-                let set_path_text = ui.text_edit_singleline(&mut self.default_location);
-                if set_path_text.changed() {
-                    if self.default_location == "" {
-                        self.default_location = "~".to_string();
-                    }
-                }
-                ui.label(RichText::new("Se il percorso indicato non è corretto, si verrà reindirizzati a 'home'").color(Color32::RED));
-
-            egui::ComboBox::from_id_source("Schermi")
-                .selected_text("Schermo da catturare")
-                .show_ui(ui, |ui| {
-                    for i in 0..self.schermi.no_screens() {
-                        let txt = format!("Schermo {}", i);
-                        ui.selectable_value(&mut self.schermi.screen_no, i, txt);
-                    }
-                });
-            });
-
-        if self.timer.is_timer_running() {
-            egui::Window::new("Countdown")
-                .title_bar(false)
-                .anchor(egui::Align2::RIGHT_TOP, [0.0, 10.0])
-                .frame(egui::Frame {
-                    fill: egui::Color32::GRAY,
-                    stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
-                    inner_margin: egui::style::Margin::same(15.0),
-                    rounding: egui::Rounding::same(20.0),
-                    ..Default::default()
-                })
-                .resizable(false)
-                .show(ctx, |ui| {
-                    let txt = format!("  {}  ", self.timer.get_seconds() - 1);
-                    ui.label(
-                        RichText::new(txt)
-                            .size(40.0)
-                            .color(Color32::DARK_RED)
-                    );
-                });
-        }
 
         if self.mode == true {
             let r = w.unwrap().response.rect;
