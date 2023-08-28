@@ -586,13 +586,10 @@ impl eframe::App for MyApp {
 
                                 let mut adj = 1.0;
                                 let mut mc_adj = 0.0;
-                                #[cfg(target_os = "windows")]
-                                {
+                                if cfg!(target_os = "windows") {
                                     adj = frame.info().native_pixels_per_point.unwrap();
                                 }
-
-                                #[cfg(target_os = "macos")]
-                                {
+                                else if cfg!(target_os = "macos") {
                                     mc_adj = frame.info().window_info.position.unwrap()[1]
                                 }
         
@@ -877,13 +874,10 @@ impl eframe::App for MyApp {
                                 let r = pos.unwrap().response.rect;
                                 let mut adj = 1.0;
                                 let mut mc_adj = 0.0;
-                                #[cfg(target_os = "windows")]
-                                {
+                                if cfg!(target_os = "windows") {
                                     adj = frame.info().native_pixels_per_point.unwrap();
                                 }
-
-                                #[cfg(target_os = "macos")]
-                                {
+                                else if cfg!(target_os = "macos") {
                                     mc_adj = frame.info().window_info.position.unwrap()[1]
                                 }
                                 self.screen_rect = RectangleCrop {
@@ -966,13 +960,10 @@ impl eframe::App for MyApp {
                 let r = w.unwrap().response.rect;
                 let mut adj = 1.0;
                 let mut mc_adj = 0.0;
-                #[cfg(target_os = "windows")]
-                {
+                if cfg!(target_os = "windows") {
                     adj = frame.info().native_pixels_per_point.unwrap();
                 }
-
-                #[cfg(target_os = "macos")]
-                {
+                else if cfg!(target_os = "macos") {
                     mc_adj = frame.info().window_info.position.unwrap()[1]
                 }
                 self.screen_rect = RectangleCrop {
