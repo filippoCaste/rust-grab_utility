@@ -189,52 +189,48 @@ impl MyApp{
                         rounding: egui::Rounding::same(20.0),
                         ..Default::default()
                     })
-                    .resizable(true)
                     .movable(true)
                     .open(&mut self.show_options)
                     .show(ctx, |ui| {
-                        if ui.button("show shortcut options").clicked() || self.shortcut_set.show {
+
+                        if ui.button("> Show shortcut options").clicked() || self.shortcut_set.show {
                             self.shortcut_set.show = true;
                             for shortcut in self.shortcut_set.to_vec_mut() {
                                 ui.label(shortcut.to_string(ctx));
                                 ui.checkbox(&mut shortcut.is_active, "actived");
                             }
-                            if ui.button("close sortcut options").clicked() {
+                            if ui.button("Close").clicked() {
                                 self.shortcut_set.show = false;
                             }
                         }
 
 
-
-                        if ui.button("show my screens").clicked() || self.schermi.show_screen_options{
+                        if ui.button("> Change location").clicked() || self.schermi.show_screen_options{
 
                             self.schermi.show_screen_options=true;
                          
-                           
-                                ui.label(RichText::new("Inserisci il percorso nel quale salvare gli screenshots: ").color(Color32::BLACK));
-                                let set_path_text = ui.text_edit_singleline(&mut self.default_location);
+                                ui.label(RichText::new("Path to which save the screenshots: ").color(Color32::BLACK));
+                                let set_path_text = ui.text_edit_singleline(&mut self.default_location)
+                                        .on_hover_text(RichText::new("If path does not exist, the default location will be 'home'").color(Color32::DARK_RED));
                                 if set_path_text.changed() {
                                     if self.default_location == "" {
                                         self.default_location = "~".to_string();
                                     }
                                 }
-                                ui.label(RichText::new("Se il percorso indicato non è corretto, si verrà reindirizzati a 'home'").color(Color32::RED));
-                
-                            egui::ComboBox::from_id_source("Schermi")
-                                .selected_text("Schermo da catturare")
-                                .show_ui(ui, |ui| {
-                                    for i in 0..self.schermi.no_screens() {
-                                        let txt = format!("Schermo {}", i);
-                                        ui.selectable_value(&mut self.schermi.screen_no, i, txt);
-                                    }
-                                });
 
-                                if ui.button("close screen options").clicked() {
+                                if ui.button("Close").clicked() {
                                     self.schermi.show_screen_options = false;
                                 }
-                            
                         }
 
+                        egui::ComboBox::from_id_source("Schermi")
+                            .selected_text("> Change screen")
+                            .show_ui(ui, |ui| {
+                                for i in 0..self.schermi.no_screens() {
+                                    let txt = format!("Screen {}", i);
+                                    ui.selectable_value(&mut self.schermi.screen_no, i, txt);
+                                }
+                            });
                     });
                 }
             }
