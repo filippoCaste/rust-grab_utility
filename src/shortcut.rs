@@ -1,10 +1,8 @@
-
-pub mod shortcut{
+pub mod shortcut {
+    use crate::action::Action;
     use eframe::egui;
     use egui::{Key, KeyboardShortcut, Modifiers};
-    use crate::action::Action as Action;
-    
-    
+
     pub struct ShortCut {
         name: String,
         shortcut: KeyboardShortcut,
@@ -12,12 +10,12 @@ pub mod shortcut{
         wants_image_viewer: bool,
         action: Action,
     }
-    
+
     pub struct ShortcutSet {
         set: Vec<ShortCut>,
         pub show: bool,
     }
-    
+
     impl ShortCut {
         fn listener_shortcut(&self, ctx: &egui::Context) -> Option<Action> {
             if ctx.input_mut(|i| i.consume_shortcut(&self.shortcut)) && self.is_active {
@@ -26,15 +24,15 @@ pub mod shortcut{
                 None
             }
         }
-    
+
         pub fn to_string(&self, ctx: &egui::Context) -> String {
             let mut output = self.name.clone();
-            output.push_str(&"->".to_string());
+            output.push_str(&" -> ".to_string());
             output.push_str(&ctx.format_shortcut(&self.shortcut));
             output
         }
     }
-    
+
     impl ShortcutSet {
         pub fn default() -> Self {
             let mut output = Vec::new();
@@ -53,7 +51,7 @@ pub mod shortcut{
                     wants_image_viewer: false,
                     action: Action::SetSelection,
                 };
-    
+
                 let s_start_timer = ShortCut {
                     name: "Start timer".to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::T),
@@ -121,13 +119,13 @@ pub mod shortcut{
                 output.push(s_modify);
                 output.push(s_another_screenshot);
             }
-    
+
             Self {
                 set: output,
                 show: false,
             }
         }
-    
+
         pub fn listener(&self, ctx: &egui::Context, is_image: bool) -> Option<Action> {
             for sc in self.set.iter() {
                 if sc.wants_image_viewer == is_image && sc.is_active {
@@ -138,8 +136,8 @@ pub mod shortcut{
             }
             None
         }
-    
-      /*   pub fn to_string(&self, ctx: &egui::Context) -> Vec<String> {
+
+        /*   pub fn to_string(&self, ctx: &egui::Context) -> Vec<String> {
             let mut output = Vec::new();
             for sc in self.set.iter() {
                 let sc_name = sc.to_string(ctx);
@@ -147,7 +145,7 @@ pub mod shortcut{
             }
             output
         } */
-    
+
         pub fn to_vec_mut(&mut self) -> Vec<&mut ShortCut> {
             let mut output = Vec::new();
             for sc in self.set.iter_mut() {
@@ -157,4 +155,3 @@ pub mod shortcut{
         }
     }
 }
-
