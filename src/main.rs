@@ -1,11 +1,13 @@
 
 use eframe::egui;
+use std::borrow::Cow;
 use egui::{RichText,Color32};
 use image;
 use native_dialog::FileDialog;
 use std::{fs, time::Duration};
 use chrono::Utc;
 use std::time::Instant;
+use arboard::{Clipboard, ImageData};
 
 mod action;
 mod shortcut;
@@ -420,6 +422,7 @@ impl eframe::App for MyApp {
 
                         if self.timer.is_timer_running() {
                           //  ui.label(format!("Screenshot tra: {}", self.timer.seconds - 1));
+                       
                             self.run_action(Action::StartTimer, ctx, frame);
 
                             if ui.button("Cancel").clicked() {
@@ -453,6 +456,20 @@ impl eframe::App for MyApp {
                             }
                             if ui.button("  Save  ").clicked() {
                                 self.run_action(Action::Save, ctx, frame)
+                            }
+                            if ui.button("  Save on clipboard ").clicked() {
+                                
+                               let mut ctx_clip = Clipboard::new().unwrap();
+                               let image =load_image_from_memory(&self.buffer.clone().unwrap()).unwrap() ;
+                               let bytes=image.as_raw();
+
+                               let img_data = ImageData {
+                                 width: image.width() as usize,
+                                 height:image.height() as usize,
+                                  bytes:Cow::from(bytes.as_ref()),
+                                 };
+                               ctx_clip.set_image(img_data).unwrap();
+                       
                             }
                             if ui
                                 .add(
@@ -970,6 +987,28 @@ fn load_image_from_memory(image_data: &[u8]) -> Result<egui::ColorImage, image::
         pixels.as_slice(),
     ))
 }
+
+/* fn color_image_to_bytes(color_image: &egui::ColorImage) -> Vec<u8> {
+    let mut bytes: Vec<u8> = Vec::new();
+    
+    // Ottieni le dimensioni dell'immagine
+    let width = color_image.width();
+    let height = color_image.height();
+    
+    // Aggiungi larghezza e altezza all'inizio dei bytes (4 bytes ciascuno)
+    bytes.extend_from_slice(&width.to_le_bytes());
+    bytes.extend_from_slice(&height.to_le_bytes());
+    
+    // Aggiungi i dati dei pixel all'array di bytes
+    for pixel in color_image.pixels() {
+        bytes.push(pixel.r());
+        bytes.push(pixel.g());
+        bytes.push(pixel.b());
+        bytes.push(pixel.a());
+    }
+    
+    bytes
+} */
 
 fn resize_image_to_fit_container(
     container_width: f32,
