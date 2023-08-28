@@ -248,11 +248,10 @@ impl MyApp{
             }
             Action::TakeAnotherScreenshot => {
                 self.image_viewer = false;
-                if self.mode_radio == SelectionMode::Selection {
-                    self.mode = true;
-                } else {
-                    self.mode = false;
-                }
+                self.mode_radio = SelectionMode::Screen;
+                self.mode = false;
+                frame.set_visible(false);
+                self.mac_bug = true;
             }
             Action::Save => {
                 let default_name = std::thread::spawn(move || {
@@ -298,7 +297,7 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.set_visuals(egui::Visuals::light());
         if self.mac_bug {
-            std::thread::sleep(Duration::from_millis(30));
+            std::thread::sleep(Duration::from_millis(100));
             frame.set_visible(true);
             self.mac_bug = false;
         }
@@ -306,7 +305,7 @@ impl eframe::App for MyApp {
             std::thread::sleep(Duration::from_millis(300));
             let screen = self.schermi.get_screen();
             let image;
-            if self.mode {
+            if self.mode || self.annotation {
                 image = screen
                     .capture_area(
                         self.screen_rect.x_left.floor() as i32,
@@ -328,7 +327,17 @@ impl eframe::App for MyApp {
             self.window_hidden = false;
             self.image_viewer = true;
             self.mode = false;
-            frame.set_visible(true);
+            self.annotation = false;
+            self.annotation_element.pen.clear();
+            self.annotation_element.rect.clear();
+            self.annotation_element.text.clear();
+            self.annotation_element.arrow.clear();
+            self.annotation_element.line.clear();
+            self.annotation_element.circle.clear();
+            self.last_modify.clear();
+            frame.set_visible(false);
+            self.mac_bug=true;
+            //frame.set_visible(true);
         }
 
         egui::Window::new("Screenshot")
@@ -498,6 +507,12 @@ impl eframe::App for MyApp {
                                 "  ⛶  ",
                             )
                             .on_hover_text("Crop");
+                            if self.selection_annotation==SelectionAnnotation::Crop{
+                                if ui.button("  Save crop  ").clicked() {
+                                    self.selection_annotation = SelectionAnnotation::NotSelected;
+                                    self.window_hidden=true;
+                                }
+                            }
                             ui.label("|");
                             egui::stroke_ui(ui, &mut self.annotation_element.stroke, "Stroke");
                             ui.label("|");
@@ -544,13 +559,25 @@ impl eframe::App for MyApp {
                                 self.annotation_element.arrow.clear();
                                 self.annotation_element.line.clear();
                                 self.annotation_element.circle.clear();
+                                self.last_modify.clear();
                                 self.selection_annotation = SelectionAnnotation::NotSelected;
                                 self.annotation = false;
                             }
                             if ui.button("  Save modify  ").clicked() {
-                    
+                                let dim_image = resize_image_to_fit_container(
+                                    1000.0,
+                                    600.0,
+                                    self.texture.clone().unwrap().size_vec2()[0],
+                                    self.texture.clone().unwrap().size_vec2()[1],
+                                );
+                                self.screen_rect = RectangleCrop {
+                                    x_left: ((frame.info().window_info.size[0]) / 2.0)-(dim_image.0/2.0),
+                                    y_left: ((frame.info().window_info.size[1]) / 2.0)-(dim_image.1/2.0)+ frame.info().window_info.position.unwrap()[1],
+                                    width: dim_image.0,
+                                    height: dim_image.1,
+                                };
                                 self.selection_annotation = SelectionAnnotation::NotSelected;
-                                self.annotation = false;
+                                self.window_hidden=true;
                             }
                         }
                     },
@@ -779,6 +806,7 @@ impl eframe::App for MyApp {
                                             if ui.button("save").clicked() {
                                                 self.annotation_element.pos_text = true;
                                                 self.last_modify.push(SelectionAnnotation::Text);
+                                                self.selection_annotation = SelectionAnnotation::NotSelected;
                                             };
                                         })
                                     });
@@ -795,7 +823,7 @@ impl eframe::App for MyApp {
                             }
                         }
                         SelectionAnnotation::Crop => {
-                            egui::Window::new("resize2")
+                           let pos= egui::Window::new("resize2")
                                 .title_bar(false)
                                 .default_size(egui::vec2(320.0, 240.0))
                                 .resizable(true)
@@ -820,6 +848,13 @@ impl eframe::App for MyApp {
                                 .show(ctx, |ui| {
                                     ui.allocate_space(ui.available_size());
                                 });
+                                let r = pos.unwrap().response.rect;
+                                self.screen_rect = RectangleCrop {
+                                    x_left: r.left(),
+                                    y_left: r.top() + frame.info().window_info.position.unwrap()[1],
+                                    width: r.width(),
+                                    height: r.height(),
+                                };
                         }
                     }
                 }
