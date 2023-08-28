@@ -595,12 +595,6 @@ impl eframe::App for MyApp {
                                 {
                                     mc_adj = frame.info().window_info.position.unwrap()[1]
                                 }
-                                // self.screen_rect = RectangleCrop {
-                                //     x_left: (r.left()) * adj,
-                                //     y_left: (r.top() + mc_adj) * adj,
-                                //     width: r.width() * adj,
-                                //     height: r.height() * adj,
-                                // };
         
                                 self.screen_rect = RectangleCrop {
                                     x_left: (((frame.info().window_info.size[0] - dim_image.0)/2.0))*adj ,
