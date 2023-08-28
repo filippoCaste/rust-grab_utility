@@ -1,30 +1,27 @@
+use arboard::{Clipboard, ImageData};
+use chrono::Utc;
 use eframe::egui;
-use std::borrow::Cow;
-use egui::{RichText,Color32};
+use egui::{Color32, RichText};
 use image;
 use native_dialog::FileDialog;
-use std::{fs, time::Duration};
-use chrono::Utc;
+use std::borrow::Cow;
 use std::time::Instant;
-use arboard::{Clipboard, ImageData};
+use std::{fs, time::Duration};
 
 mod action;
+mod schermi;
 mod shortcut;
+mod timer;
 
 use action::Action;
+use schermi::schermi::Schermi;
 use shortcut::shortcut::ShortcutSet;
 use timer::timer::Timer;
-use schermi::schermi::Schermi;
-
-
-pub mod schermi;
-pub mod timer;
 
 fn main() -> Result<(), eframe::Error> {
-    
     let options = eframe::NativeOptions {
         maximized: true,
-        decorated: true,
+        decorated: false,
         transparent: true,
         resizable: false,
         ..Default::default()
@@ -45,16 +42,17 @@ struct MyApp {
     mode: bool,
     mode_radio: SelectionMode,
     image_viewer: bool,
-    timer:Timer,
+    timer: Timer,
     show_options: bool,
     shortcut_set: ShortcutSet,
     schermi: Schermi,
-    default_location:String,
+    default_location: String,
     mac_bug: bool,
     annotation: bool,
     selection_annotation: SelectionAnnotation,
     annotation_element: AnnotationElement,
     last_modify: Vec<SelectionAnnotation>,
+    option: Options,
 }
 
 struct RectangleCrop {
@@ -80,6 +78,13 @@ enum SelectionAnnotation {
     Crop,
     Line,
     Circle,
+}
+
+#[derive(PartialEq)]
+enum Options {
+    Shortcut,
+    Screen,
+    Allocation,
 }
 
 struct AnnotationElement {
@@ -109,9 +114,9 @@ impl Default for MyApp {
             mode: false,
             mode_radio: SelectionMode::Screen,
             image_viewer: false,
-            timer:Timer::new(),
-            show_options:false,
-            shortcut_set:ShortcutSet::default(),
+            timer: Timer::new(),
+            show_options: false,
+            shortcut_set: ShortcutSet::default(),
             default_location: "~".to_string(),
             schermi: Schermi::new(),
             mac_bug: false,
@@ -129,48 +134,46 @@ impl Default for MyApp {
                 text2: "Edit this text".to_owned(),
                 pos_text: false,
             },
+            option: Options::Shortcut,
         }
     }
 }
-impl MyApp{
+impl MyApp {
     fn run_action(&mut self, action: Action, ctx: &egui::Context, frame: &mut eframe::Frame) {
         match action {
             Action::SetEntireScreen => {
-
-                self.mode_radio=SelectionMode::Screen;
+                self.mode_radio = SelectionMode::Screen;
                 self.mode = false;
             }
             Action::SetSelection => {
-                self.mode_radio=SelectionMode::Selection;
+                self.mode_radio = SelectionMode::Selection;
                 self.mode = true;
             }
             Action::SettingTimer => {
-                
-                 if self.timer.get_seconds() > 0 {
+                if self.timer.get_seconds() > 0 {
                     self.timer.start_timer();
                 } else {
                     frame.set_visible(false);
                     self.window_hidden = true;
                 }
-
-
             }
             Action::StartTimer => {
-              
                 let now = Instant::now();
-                if now.duration_since(self.timer.last_decrement().unwrap()).as_secs_f32() >= 1.0 {
+                if now
+                    .duration_since(self.timer.last_decrement().unwrap())
+                    .as_secs_f32()
+                    >= 1.0
+                {
                     self.timer.handle_positive_timer();
                     if self.timer.seconds == 0 {
-                       self.timer.handle_negative_timer(); 
-                       self.window_hidden = true;
-                       frame.set_visible(false);
-                       self.timer.close_timer_form();
+                        self.timer.handle_negative_timer();
+                        self.window_hidden = true;
+                        frame.set_visible(false);
+                        self.timer.close_timer_form();
                     }
                     self.timer.last_decrement_time = Some(now);
                 }
                 ctx.request_repaint();
-
-               
             }
             Action::CancelTimer => {
                 self.timer.cancel_timer();
@@ -178,59 +181,88 @@ impl MyApp{
             Action::Options => {
                 self.show_options = true;
                 if self.show_options {
-                    
                     egui::Window::new("Options")
-                    .title_bar(true)
-                    .frame(egui::Frame {
-                        fill: egui::Color32::GRAY,
-                        stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
-                        inner_margin: egui::style::Margin::same(15.0),
-                        rounding: egui::Rounding::same(20.0),
-                        ..Default::default()
-                    })
-                    .movable(true)
-                    .open(&mut self.show_options)
-                    .show(ctx, |ui| {
-
-                        if ui.button("> Show shortcut options").clicked() || self.shortcut_set.show {
-                            self.shortcut_set.show = true;
-                            for shortcut in self.shortcut_set.to_vec_mut() {
-                                ui.label(shortcut.to_string(ctx));
-                                ui.checkbox(&mut shortcut.is_active, "actived");
-                            }
-                            if ui.button("Close").clicked() {
-                                self.shortcut_set.show = false;
-                            }
-                        }
-
-
-                        if ui.button("> Change location").clicked() || self.schermi.show_screen_options{
-
-                            self.schermi.show_screen_options=true;
-                         
-                                ui.label(RichText::new("Path to which save the screenshots: ").color(Color32::BLACK));
-                                let set_path_text = ui.text_edit_singleline(&mut self.default_location)
-                                        .on_hover_text(RichText::new("If path does not exist, the default location will be 'home'").color(Color32::DARK_RED));
-                                if set_path_text.changed() {
-                                    if self.default_location == "" {
-                                        self.default_location = "~".to_string();
+                        .title_bar(true)
+                        .frame(egui::Frame {
+                            fill: egui::Color32::GRAY,
+                            stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
+                            inner_margin: egui::style::Margin::same(15.0),
+                            rounding: egui::Rounding::same(20.0),
+                            ..Default::default()
+                        })
+                        .movable(true)
+                        .open(&mut self.show_options)
+                        .show(ctx, |ui| {
+                            ui.vertical_centered(|ui| {
+                                ui.horizontal(|ui| {
+                                    ui.selectable_value(
+                                        &mut self.option,
+                                        Options::Shortcut,
+                                        "  Shortcut  ",
+                                    );
+                                    ui.label("|");
+                                    ui.selectable_value(
+                                        &mut self.option,
+                                        Options::Allocation,
+                                        "  Location  ",
+                                    );
+                                    ui.label("|");
+                                    ui.selectable_value(
+                                        &mut self.option,
+                                        Options::Screen,
+                                        "  Change screen  ",
+                                    );
+                                });
+                            });
+                            ui.separator();
+                            match self.option {
+                                Options::Shortcut => {
+                                    for shortcut in self.shortcut_set.to_vec_mut() {
+                                        ui.horizontal(|ui| {
+                                            ui.checkbox(&mut shortcut.is_active, "");
+                                            ui.label(shortcut.to_string(ctx));
+                                        });
                                     }
                                 }
-
-                                if ui.button("Close").clicked() {
-                                    self.schermi.show_screen_options = false;
+                                Options::Allocation => {
+                                    ui.label(
+                                        RichText::new("Path to which save the screenshots: ")
+                                            .color(Color32::BLACK),
+                                    );
+                                    ui.horizontal(|ui| {
+                                        let set_path_text =
+                                            ui.text_edit_singleline(&mut self.default_location);
+                                        if ui.button("Change").clicked() {
+                                            let result =
+                                                FileDialog::new().show_open_single_dir().unwrap();
+                                            if result.is_some() {
+                                                self.default_location =
+                                                    result.unwrap().to_string_lossy().to_string();
+                                            }
+                                        }
+                                        if set_path_text.changed() {
+                                            if self.default_location == "" {
+                                                self.default_location = "~".to_string();
+                                            }
+                                        }
+                                    });
                                 }
-                        }
-
-                        egui::ComboBox::from_id_source("Schermi")
-                            .selected_text("> Change screen")
-                            .show_ui(ui, |ui| {
-                                for i in 0..self.schermi.no_screens() {
-                                    let txt = format!("Screen {}", i);
-                                    ui.selectable_value(&mut self.schermi.screen_no, i, txt);
+                                Options::Screen => {
+                                    egui::ComboBox::from_id_source("Schermi")
+                                        .selected_text("  Change screen  ")
+                                        .show_ui(ui, |ui| {
+                                            for i in 0..self.schermi.no_screens() {
+                                                let txt = format!("Screen {}", i);
+                                                ui.selectable_value(
+                                                    &mut self.schermi.screen_no,
+                                                    i,
+                                                    txt,
+                                                );
+                                            }
+                                        });
                                 }
-                            });
-                    });
+                            }
+                        });
                 }
             }
             Action::Capture => {
@@ -241,7 +273,7 @@ impl MyApp{
                 frame.close();
             }
             Action::Modify => {
-                         self.annotation=true;
+                self.annotation = true;
             }
             Action::TakeAnotherScreenshot => {
                 self.image_viewer = false;
@@ -252,37 +284,40 @@ impl MyApp{
             }
             Action::Save => {
                 let default_name = std::thread::spawn(move || {
-                    let today = Utc::now().to_string()
-                    .replace("-", "")
-                    .replace(":", "_")
-                    .replace(" ", "")
-                    .to_string();
-                format!("screenshot_{}", today)
-                }).join().expect("Fail to compute date");
+                    let today = Utc::now()
+                        .to_string()
+                        .replace("-", "")
+                        .replace(":", "_")
+                        .replace(" ", "")
+                        .to_string();
+                    format!("screenshot_{}", today)
+                })
+                .join()
+                .expect("Fail to compute date");
                 let result = match FileDialog::new()
                     .set_location(&self.default_location)
                     .set_filename(&default_name[..27])
                     .add_filter("PNG Image", &["png"])
                     .add_filter("JPEG Image", &["jpg", "jpeg"])
                     .add_filter("GIF Image", &["gif"])
-                    .show_save_single_file() {
-                Ok(res) => {res},
-                Err(_) => {
-                    // uncorrect path set by user
-                    FileDialog::new()
-                    .set_location("~")
-                    .set_filename(&default_name[..27])
-                    .add_filter("PNG Image", &["png"])
-                    .add_filter("JPEG Image", &["jpg", "jpeg"])
-                    .add_filter("GIF Image", &["gif"])
                     .show_save_single_file()
-                    .unwrap()
-                }
-            };
+                {
+                    Ok(res) => res,
+                    Err(_) => {
+                        // uncorrect path set by user
+                        FileDialog::new()
+                            .set_location("~")
+                            .set_filename(&default_name[..27])
+                            .add_filter("PNG Image", &["png"])
+                            .add_filter("JPEG Image", &["jpg", "jpeg"])
+                            .add_filter("GIF Image", &["gif"])
+                            .show_save_single_file()
+                            .unwrap()
+                    }
+                };
                 match result {
                     Some(result) => {
-                        fs::write(result.clone(), self.buffer.clone().unwrap())
-                            .unwrap();
+                        fs::write(result.clone(), self.buffer.clone().unwrap()).unwrap();
                     }
                     None => {}
                 };
@@ -292,6 +327,7 @@ impl MyApp{
 }
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        //println!("{:?}",frame.info());
         ctx.set_visuals(egui::Visuals::light());
         if self.mac_bug {
             std::thread::sleep(Duration::from_millis(100));
@@ -333,7 +369,7 @@ impl eframe::App for MyApp {
             self.annotation_element.circle.clear();
             self.last_modify.clear();
             frame.set_visible(false);
-            self.mac_bug=true;
+            self.mac_bug = true;
             //frame.set_visible(true);
         }
 
@@ -360,7 +396,6 @@ impl eframe::App for MyApp {
                         cross_justify: true,
                     },
                     |ui| {
-
                         match self.shortcut_set.listener(ctx, self.image_viewer) {
                             Some(action) => self.run_action(action, ctx, frame),
                             None => {}
@@ -376,7 +411,7 @@ impl eframe::App for MyApp {
                                 .on_hover_text("Capture the entire screen")
                                 .clicked()
                             {
-                              self.run_action(Action::SetEntireScreen, ctx, frame)
+                                self.run_action(Action::SetEntireScreen, ctx, frame)
                             };
                             if ui
                                 .selectable_value(
@@ -387,43 +422,43 @@ impl eframe::App for MyApp {
                                 .on_hover_text("Capture the selection")
                                 .clicked()
                             {
-                               self.run_action(Action::SetSelection, ctx, frame)
+                                self.run_action(Action::SetSelection, ctx, frame)
                             };
                             if ui
-                            .button(" 🕓 ")
-                            .on_hover_text("Take a screenshot with timer")
-                            .clicked()
-                        {
-                            self.timer.open_timer_form();
-                        }
-
-                        if self.timer.is_timer_form_open() {
-                            ui.label("Timer (seconds):");
-                            ui.add(egui::Slider::new(&mut self.timer.seconds, 0..=60));
-
-                            if ui.button("Start Timer").clicked() {
-                                /*
-                                N.B: il bottone ha il solo compito di comunicare l'intenzione di avviare il timer.
-                                     Sarà poi il blocco 'if self.timer.is_timer_running { }' ad attivare
-                                     effettivamente il timer decrementando i secondi.
-                                 */
-                                self.run_action(Action::SettingTimer, ctx, frame);
+                                .button(" 🕓 ")
+                                .on_hover_text("Take a screenshot with timer")
+                                .clicked()
+                            {
+                                self.timer.open_timer_form();
                             }
 
-                            if ui.button("Cancel").clicked() {
-                                self.run_action(Action::CancelTimer, ctx, frame);
-                            }
-                        }
+                            if self.timer.is_timer_form_open() {
+                                ui.label("Timer (seconds):");
+                                ui.add(egui::Slider::new(&mut self.timer.seconds, 0..=60));
 
-                        if self.timer.is_timer_running() {
-                          //  ui.label(format!("Screenshot tra: {}", self.timer.seconds - 1));
-                       
-                            self.run_action(Action::StartTimer, ctx, frame);
+                                if ui.button("Start Timer").clicked() {
+                                    /*
+                                    N.B: il bottone ha il solo compito di comunicare l'intenzione di avviare il timer.
+                                         Sarà poi il blocco 'if self.timer.is_timer_running { }' ad attivare
+                                         effettivamente il timer decrementando i secondi.
+                                     */
+                                    self.run_action(Action::SettingTimer, ctx, frame);
+                                }
 
-                            if ui.button("Cancel").clicked() {
-                                self.run_action(Action::CancelTimer, ctx, frame);
+                                if ui.button("Cancel").clicked() {
+                                    self.run_action(Action::CancelTimer, ctx, frame);
+                                }
                             }
-                        }
+
+                            if self.timer.is_timer_running() {
+                                //  ui.label(format!("Screenshot tra: {}", self.timer.seconds - 1));
+
+                                self.run_action(Action::StartTimer, ctx, frame);
+
+                                if ui.button("Cancel").clicked() {
+                                    self.run_action(Action::CancelTimer, ctx, frame);
+                                }
+                            }
                             if ui.button("  Options  ").clicked() {
                                 self.run_action(Action::Options, ctx, frame)
                             }
@@ -431,7 +466,7 @@ impl eframe::App for MyApp {
                                 self.run_action(Action::Options, ctx, frame)
                             }
                             if ui.button("  Capture  ").clicked() {
-                               self.run_action(Action::Capture, ctx, frame)
+                                self.run_action(Action::Capture, ctx, frame)
                             }
                             if ui
                                 .add(
@@ -446,26 +481,32 @@ impl eframe::App for MyApp {
                             if ui.button("  Modify  ").clicked() {
                                 self.run_action(Action::Modify, ctx, frame)
                             }
+                            if ui.button("  Options  ").clicked() {
+                                self.run_action(Action::Options, ctx, frame)
+                            }
+                            if self.show_options {
+                                self.run_action(Action::Options, ctx, frame)
+                            }
+                            if ui.button("  📋  ").clicked() {
+                                let mut ctx_clip = Clipboard::new().unwrap();
+                                let image =
+                                    load_image_from_memory(&self.buffer.clone().unwrap()).unwrap();
+                                let bytes = image.as_raw();
+
+                                let img_data = ImageData {
+                                    width: image.width() as usize,
+                                    height: image.height() as usize,
+                                    bytes: Cow::from(bytes.as_ref()),
+                                };
+                                ctx_clip.set_image(img_data).unwrap();
+                            }
                             if ui.button("  Take another Screenshot  ").clicked() {
-                            self.run_action(Action::TakeAnotherScreenshot, ctx, frame)
+                                self.run_action(Action::TakeAnotherScreenshot, ctx, frame)
                             }
                             if ui.button("  Save  ").clicked() {
                                 self.run_action(Action::Save, ctx, frame)
                             }
-                            if ui.button("  Save on clipboard ").clicked() {
-                                
-                               let mut ctx_clip = Clipboard::new().unwrap();
-                               let image =load_image_from_memory(&self.buffer.clone().unwrap()).unwrap() ;
-                               let bytes=image.as_raw();
 
-                               let img_data = ImageData {
-                                 width: image.width() as usize,
-                                 height:image.height() as usize,
-                                  bytes:Cow::from(bytes.as_ref()),
-                                 };
-                               ctx_clip.set_image(img_data).unwrap();
-                       
-                            }
                             if ui
                                 .add(
                                     egui::Button::new("  X  ").rounding(egui::Rounding::same(50.0)),
@@ -519,10 +560,10 @@ impl eframe::App for MyApp {
                                 "  ⛶  ",
                             )
                             .on_hover_text("Crop");
-                            if self.selection_annotation==SelectionAnnotation::Crop{
+                            if self.selection_annotation == SelectionAnnotation::Crop {
                                 if ui.button("  Save crop  ").clicked() {
                                     self.selection_annotation = SelectionAnnotation::NotSelected;
-                                    self.window_hidden=true;
+                                    self.window_hidden = true;
                                 }
                             }
                             ui.label("|");
@@ -582,14 +623,24 @@ impl eframe::App for MyApp {
                                     self.texture.clone().unwrap().size_vec2()[0],
                                     self.texture.clone().unwrap().size_vec2()[1],
                                 );
+
+                                let mut adj = 1.0;
+                                let mut mc_adj = 0.0;
+                                if cfg!(target_os = "windows") {
+                                    adj = frame.info().native_pixels_per_point.unwrap();
+                                }
+                                else if cfg!(target_os = "macos") {
+                                    mc_adj = frame.info().window_info.position.unwrap()[1]
+                                }
+        
                                 self.screen_rect = RectangleCrop {
-                                    x_left: ((frame.info().window_info.size[0]) / 2.0)-(dim_image.0/2.0),
-                                    y_left: ((frame.info().window_info.size[1]) / 2.0)-(dim_image.1/2.0)+ frame.info().window_info.position.unwrap()[1],
-                                    width: dim_image.0,
-                                    height: dim_image.1,
+                                    x_left: (((frame.info().window_info.size[0] - dim_image.0)/2.0))*adj ,
+                                    y_left: (((frame.info().window_info.size[1] - dim_image.1)/2.0)+ mc_adj) * adj,
+                                    width: dim_image.0 * adj,
+                                    height: dim_image.1 * adj,
                                 };
                                 self.selection_annotation = SelectionAnnotation::NotSelected;
-                                self.window_hidden=true;
+                                self.window_hidden = true;
                             }
                         }
                     },
@@ -630,15 +681,6 @@ impl eframe::App for MyApp {
             .resizable(false)
             .open(&mut self.image_viewer)
             .show(ctx, |ui| {
-                // ui.image(
-                //     &self.texture.clone().unwrap(),
-                //     resize_image_to_fit_container(
-                //         1000.0,
-                //         600.0,
-                //         self.texture.clone().unwrap().size_vec2()[0],
-                //         self.texture.clone().unwrap().size_vec2()[1],
-                //     ),
-                // );
                 let dim_image = resize_image_to_fit_container(
                     1000.0,
                     600.0,
@@ -818,7 +860,8 @@ impl eframe::App for MyApp {
                                             if ui.button("save").clicked() {
                                                 self.annotation_element.pos_text = true;
                                                 self.last_modify.push(SelectionAnnotation::Text);
-                                                self.selection_annotation = SelectionAnnotation::NotSelected;
+                                                self.selection_annotation =
+                                                    SelectionAnnotation::NotSelected;
                                             };
                                         })
                                     });
@@ -835,7 +878,7 @@ impl eframe::App for MyApp {
                             }
                         }
                         SelectionAnnotation::Crop => {
-                           let pos= egui::Window::new("resize2")
+                            let pos = egui::Window::new("resize2")
                                 .title_bar(false)
                                 .default_size(egui::vec2(320.0, 240.0))
                                 .resizable(true)
@@ -852,7 +895,6 @@ impl eframe::App for MyApp {
                                     egui::Vec2::new(dim_image.0, dim_image.1),
                                 ))
                                 .frame(egui::Frame {
-                                    // fill: egui::Color32::TRANSPARENT,
                                     stroke: egui::Stroke::new(1.5, egui::Color32::WHITE),
                                     shadow: egui::epaint::Shadow::small_light(),
                                     ..Default::default()
@@ -860,14 +902,23 @@ impl eframe::App for MyApp {
                                 .show(ctx, |ui| {
                                     ui.allocate_space(ui.available_size());
                                 });
+
                                 let r = pos.unwrap().response.rect;
+                                let mut adj = 1.0;
+                                let mut mc_adj = 0.0;
+                                if cfg!(target_os = "windows") {
+                                    adj = frame.info().native_pixels_per_point.unwrap();
+                                }
+                                else if cfg!(target_os = "macos") {
+                                    mc_adj = frame.info().window_info.position.unwrap()[1]
+                                }
                                 self.screen_rect = RectangleCrop {
-                                    x_left: r.left(),
-                                    y_left: r.top() + frame.info().window_info.position.unwrap()[1],
-                                    width: r.width(),
-                                    height: r.height(),
+                                    x_left: (r.left()) * adj,
+                                    y_left: (r.top() + mc_adj) * adj,
+                                    width: r.width() * adj,
+                                    height: r.height() * adj,
                                 };
-                        }
+                            }
                     }
                 }
                 let pen = self
@@ -937,69 +988,23 @@ impl eframe::App for MyApp {
                 painter.extend(circle);
             });
 
-        egui::Window::new("Options")
-            .title_bar(true)
-            .frame(egui::Frame {
-                fill: egui::Color32::GRAY,
-                stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
-                inner_margin: egui::style::Margin::same(15.0),
-                rounding: egui::Rounding::same(20.0),
-                ..Default::default()
-            })
-            .resizable(true)
-            .movable(true)
-            .open(&mut self.show_options)
-            .show(ctx, |ui| {
-                ui.label(RichText::new("Inserisci il percorso nel quale salvare gli screenshots: ").color(Color32::BLACK));
-                let set_path_text = ui.text_edit_singleline(&mut self.default_location);
-                if set_path_text.changed() {
-                    if self.default_location == "" {
-                        self.default_location = "~".to_string();
-                    }
+            if self.mode == true {
+                let r = w.unwrap().response.rect;
+                let mut adj = 1.0;
+                let mut mc_adj = 0.0;
+                if cfg!(target_os = "windows") {
+                    adj = frame.info().native_pixels_per_point.unwrap();
                 }
-                ui.label(RichText::new("Se il percorso indicato non è corretto, si verrà reindirizzati a 'home'").color(Color32::RED));
-
-            egui::ComboBox::from_id_source("Schermi")
-                .selected_text("Schermo da catturare")
-                .show_ui(ui, |ui| {
-                    for i in 0..self.schermi.no_screens() {
-                        let txt = format!("Schermo {}", i);
-                        ui.selectable_value(&mut self.schermi.screen_no, i, txt);
-                    }
-                });
-            });
-
-        if self.timer.is_timer_running() {
-            egui::Window::new("Countdown")
-                .title_bar(false)
-                .anchor(egui::Align2::RIGHT_TOP, [0.0, 10.0])
-                .frame(egui::Frame {
-                    fill: egui::Color32::GRAY,
-                    stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
-                    inner_margin: egui::style::Margin::same(15.0),
-                    rounding: egui::Rounding::same(20.0),
-                    ..Default::default()
-                })
-                .resizable(false)
-                .show(ctx, |ui| {
-                    let txt = format!("  {}  ", self.timer.get_seconds() - 1);
-                    ui.label(
-                        RichText::new(txt)
-                            .size(40.0)
-                            .color(Color32::DARK_RED)
-                    );
-                });
-        }
-
-        if self.mode == true {
-            let r = w.unwrap().response.rect;
-            self.screen_rect = RectangleCrop {
-                x_left: r.left(),
-                y_left: r.top() + frame.info().window_info.position.unwrap()[1],
-                width: r.width(),
-                height: r.height(),
-            };
-        }
+                else if cfg!(target_os = "macos") {
+                    mc_adj = frame.info().window_info.position.unwrap()[1]
+                }
+                self.screen_rect = RectangleCrop {
+                    x_left: (r.left()) * adj,
+                    y_left: (r.top() + mc_adj) * adj,
+                    width: r.width() * adj,
+                    height: r.height() * adj,
+                };
+            }
 
         if self.timer.is_timer_running() {
             egui::Window::new("Countdown")
@@ -1015,14 +1020,9 @@ impl eframe::App for MyApp {
                 .resizable(false)
                 .show(ctx, |ui| {
                     let txt = format!("  {}  ", self.timer.get_seconds() - 1);
-                    ui.label(
-                        RichText::new(txt)
-                            .size(40.0)
-                            .color(Color32::DARK_RED)
-                    );                    
+                    ui.label(RichText::new(txt).size(40.0).color(Color32::DARK_RED));
                 });
         }
-
     }
 }
 
@@ -1036,28 +1036,6 @@ fn load_image_from_memory(image_data: &[u8]) -> Result<egui::ColorImage, image::
         pixels.as_slice(),
     ))
 }
-
-/* fn color_image_to_bytes(color_image: &egui::ColorImage) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::new();
-    
-    // Ottieni le dimensioni dell'immagine
-    let width = color_image.width();
-    let height = color_image.height();
-    
-    // Aggiungi larghezza e altezza all'inizio dei bytes (4 bytes ciascuno)
-    bytes.extend_from_slice(&width.to_le_bytes());
-    bytes.extend_from_slice(&height.to_le_bytes());
-    
-    // Aggiungi i dati dei pixel all'array di bytes
-    for pixel in color_image.pixels() {
-        bytes.push(pixel.r());
-        bytes.push(pixel.g());
-        bytes.push(pixel.b());
-        bytes.push(pixel.a());
-    }
-    
-    bytes
-} */
 
 fn resize_image_to_fit_container(
     container_width: f32,
