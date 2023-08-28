@@ -1,4 +1,6 @@
 pub mod timer {
+    use std::time::Instant;
+
 
     #[derive(Clone)]
     pub struct Timer {
@@ -6,6 +8,7 @@ pub mod timer {
         text: String,
         timer_form_open: bool,
         is_timer_running: bool,
+      pub  last_decrement_time:Option<Instant>,
        
     }
 
@@ -16,7 +19,8 @@ pub mod timer {
                 seconds: 0,
                 text: "".to_string(),
                 timer_form_open: false,
-                is_timer_running: false
+                is_timer_running: false,
+                last_decrement_time: None,
             }
         }
 
@@ -33,6 +37,7 @@ pub mod timer {
         pub fn start_timer(&mut self) {
             self.timer_form_open = false;
             self.is_timer_running = true;
+            self.last_decrement_time= Some(Instant::now());
         }
 
         pub fn cancel_timer(&mut self) {
@@ -60,6 +65,9 @@ pub mod timer {
 
         pub fn close_timer_form(&mut self) {
             self.timer_form_open = false;
+        }
+        pub fn last_decrement(&self)->Option<Instant>{
+            self.last_decrement_time
         }
 
     }

@@ -1,9 +1,11 @@
+
 use eframe::egui;
 use egui::{RichText,Color32};
 use image;
 use native_dialog::FileDialog;
 use std::{fs, time::Duration};
 use chrono::Utc;
+use std::time::Instant;
 
 mod action;
 mod shortcut;
@@ -18,6 +20,7 @@ use schermi::schermi::Schermi;
 
 
 fn main() -> Result<(), eframe::Error> {
+    
     let options = eframe::NativeOptions {
         maximized: true,
         decorated: false,
@@ -138,25 +141,29 @@ impl MyApp{
                 self.mode = true;
             }
             Action::SettingTimer => {
-                if self.timer.get_seconds() > 0 {
+                
+                 if self.timer.get_seconds() > 0 {
                     self.timer.start_timer();
                 } else {
                     frame.set_visible(false);
                     self.window_hidden = true;
                 }
+
+
             }
             Action::StartTimer => {
-                self.timer.close_timer_form();
-                if self.timer.get_seconds() > 0 {
-                    std::thread::sleep(Duration::from_secs(1));
-                    self.timer.handle_positive_timer();
-                    ctx.request_repaint();
-                    if self.timer.get_seconds() <= 0 {
-                        self.timer.handle_negative_timer();
+              
+                let now = Instant::now();
+                if now.duration_since(self.timer.last_decrement().unwrap()).as_secs_f32() >= 1.0 {
+                    self.timer.seconds -= 1;
+                    if self.timer.seconds == 0 {
                         frame.set_visible(false);
-                        self.window_hidden = true;
+                        self.window_hidden=true;
+                        self.timer.close_timer_form();
                     }
+                    self.timer.last_decrement_time = Some(now);
                 }
+                ctx.request_repaint();
 
                
             }
@@ -537,6 +544,15 @@ impl eframe::App for MyApp {
                                 self.annotation = false;
                             }
                             if ui.button("  Save modify  ").clicked() {
+                                let dim_image = resize_image_to_fit_container(
+                                    1000.0,
+                                    600.0,
+                                    self.texture.clone().unwrap().size_vec2()[0],
+                                    self.texture.clone().unwrap().size_vec2()[1],
+                                );
+
+                                let image=egui::widgets::Image::new(egui::TextureId::from(self.texture.as_ref().unwrap()),dim_image);
+
                                 self.selection_annotation = SelectionAnnotation::NotSelected;
                                 self.annotation = false;
                             }
@@ -906,7 +922,7 @@ impl eframe::App for MyApp {
                         RichText::new(txt)
                             .size(40.0)
                             .color(Color32::DARK_RED)
-                    );
+                    );                    
                 });
         }
 
