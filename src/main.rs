@@ -10,9 +10,6 @@ use arboard::{Clipboard, ImageData};
 
 mod action;
 mod shortcut;
-mod timer;
-mod schermi;
- 
 
 use action::Action;
 use shortcut::shortcut::ShortcutSet;
@@ -22,9 +19,6 @@ use schermi::schermi::Schermi;
 
 pub mod schermi;
 pub mod timer;
-
-use schermi::schermi::Schermi;
-use timer::timer::Timer;
 
 fn main() -> Result<(), eframe::Error> {
     
