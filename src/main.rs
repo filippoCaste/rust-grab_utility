@@ -1,8 +1,24 @@
-use chrono::Utc;
-use eframe::{egui::{self, RichText}, epaint::Color32};
+use eframe::egui;
+use std::borrow::Cow;
+use egui::{RichText,Color32};
 use image;
 use native_dialog::FileDialog;
 use std::{fs, time::Duration};
+use chrono::Utc;
+use std::time::Instant;
+use arboard::{Clipboard, ImageData};
+
+mod action;
+mod shortcut;
+mod timer;
+mod schermi;
+ 
+
+use action::Action;
+use shortcut::shortcut::ShortcutSet;
+use timer::timer::Timer;
+use schermi::schermi::Schermi;
+
 
 pub mod schermi;
 pub mod timer;
@@ -11,6 +27,7 @@ use schermi::schermi::Schermi;
 use timer::timer::Timer;
 
 fn main() -> Result<(), eframe::Error> {
+    
     let options = eframe::NativeOptions {
         maximized: true,
         decorated: true,
@@ -32,12 +49,18 @@ struct MyApp {
     screen_rect: RectangleCrop,
     window_hidden: bool,
     mode: bool,
-    mode_radio: Enum,
+    mode_radio: SelectionMode,
     image_viewer: bool,
-    timer: Timer,
-    default_location: String,
+    timer:Timer,
     show_options: bool,
+    shortcut_set: ShortcutSet,
     schermi: Schermi,
+    default_location:String,
+    mac_bug: bool,
+    annotation: bool,
+    selection_annotation: SelectionAnnotation,
+    annotation_element: AnnotationElement,
+    last_modify: Vec<SelectionAnnotation>,
 }
 
 struct RectangleCrop {
@@ -48,9 +71,33 @@ struct RectangleCrop {
 }
 
 #[derive(PartialEq)]
-enum Enum {
+enum SelectionMode {
     Screen,
     Selection,
+}
+
+#[derive(PartialEq, Debug)]
+enum SelectionAnnotation {
+    NotSelected,
+    Pen,
+    Rect,
+    Arrow,
+    Text,
+    Crop,
+    Line,
+    Circle,
+}
+
+struct AnnotationElement {
+    stroke: egui::Stroke,
+    pen: Vec<Vec<(egui::Pos2, egui::Stroke)>>,
+    rect: Vec<Vec<(egui::Pos2, egui::Stroke)>>,
+    circle: Vec<Vec<(egui::Pos2, egui::Stroke)>>,
+    arrow: Vec<Vec<(egui::Pos2, egui::Stroke)>>,
+    line: Vec<Vec<(egui::Pos2, egui::Stroke)>>,
+    text: Vec<(egui::Pos2, String, egui::Stroke)>,
+    text2: String,
+    pos_text: bool,
 }
 
 impl Default for MyApp {
@@ -66,23 +113,202 @@ impl Default for MyApp {
             },
             window_hidden: false,
             mode: false,
-            mode_radio: Enum::Screen,
+            mode_radio: SelectionMode::Screen,
             image_viewer: false,
-            timer: Timer::new(),
+            timer:Timer::new(),
+            show_options:false,
+            shortcut_set:ShortcutSet::default(),
             default_location: "~".to_string(),
-            show_options: false,
             schermi: Schermi::new(),
+            mac_bug: false,
+            selection_annotation: SelectionAnnotation::NotSelected,
+            last_modify: Default::default(),
+            annotation: false,
+            annotation_element: AnnotationElement {
+                pen: Default::default(),
+                rect: Default::default(),
+                circle: Default::default(),
+                arrow: Default::default(),
+                line: Default::default(),
+                text: Default::default(),
+                stroke: egui::Stroke::new(1.0, egui::Color32::BLACK),
+                text2: "Edit this text".to_owned(),
+                pos_text: false,
+            },
         }
     }
 }
+impl MyApp{
+    fn run_action(&mut self, action: Action, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        match action {
+            Action::SetEntireScreen => {
 
+                self.mode_radio=SelectionMode::Screen;
+                self.mode = false;
+            }
+            Action::SetSelection => {
+                self.mode_radio=SelectionMode::Selection;
+                self.mode = true;
+            }
+            Action::SettingTimer => {
+                
+                 if self.timer.get_seconds() > 0 {
+                    self.timer.start_timer();
+                } else {
+                    frame.set_visible(false);
+                    self.window_hidden = true;
+                }
+
+
+            }
+            Action::StartTimer => {
+              
+                let now = Instant::now();
+                if now.duration_since(self.timer.last_decrement().unwrap()).as_secs_f32() >= 1.0 {
+                    self.timer.handle_positive_timer();
+                    if self.timer.seconds == 0 {
+                       self.timer.handle_negative_timer(); 
+                       self.window_hidden = true;
+                       frame.set_visible(false);
+                       self.timer.close_timer_form();
+                    }
+                    self.timer.last_decrement_time = Some(now);
+                }
+                ctx.request_repaint();
+
+               
+            }
+            Action::CancelTimer => {
+                self.timer.cancel_timer();
+            }
+            Action::Options => {
+                self.show_options = true;
+                if self.show_options {
+                    
+                    egui::Window::new("Options")
+                    .title_bar(true)
+                    .frame(egui::Frame {
+                        fill: egui::Color32::GRAY,
+                        stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
+                        inner_margin: egui::style::Margin::same(15.0),
+                        rounding: egui::Rounding::same(20.0),
+                        ..Default::default()
+                    })
+                    .movable(true)
+                    .open(&mut self.show_options)
+                    .show(ctx, |ui| {
+
+                        if ui.button("> Show shortcut options").clicked() || self.shortcut_set.show {
+                            self.shortcut_set.show = true;
+                            for shortcut in self.shortcut_set.to_vec_mut() {
+                                ui.label(shortcut.to_string(ctx));
+                                ui.checkbox(&mut shortcut.is_active, "actived");
+                            }
+                            if ui.button("Close").clicked() {
+                                self.shortcut_set.show = false;
+                            }
+                        }
+
+
+                        if ui.button("> Change location").clicked() || self.schermi.show_screen_options{
+
+                            self.schermi.show_screen_options=true;
+                         
+                                ui.label(RichText::new("Path to which save the screenshots: ").color(Color32::BLACK));
+                                let set_path_text = ui.text_edit_singleline(&mut self.default_location)
+                                        .on_hover_text(RichText::new("If path does not exist, the default location will be 'home'").color(Color32::DARK_RED));
+                                if set_path_text.changed() {
+                                    if self.default_location == "" {
+                                        self.default_location = "~".to_string();
+                                    }
+                                }
+
+                                if ui.button("Close").clicked() {
+                                    self.schermi.show_screen_options = false;
+                                }
+                        }
+
+                        egui::ComboBox::from_id_source("Schermi")
+                            .selected_text("> Change screen")
+                            .show_ui(ui, |ui| {
+                                for i in 0..self.schermi.no_screens() {
+                                    let txt = format!("Screen {}", i);
+                                    ui.selectable_value(&mut self.schermi.screen_no, i, txt);
+                                }
+                            });
+                    });
+                }
+            }
+            Action::Capture => {
+                self.window_hidden = true;
+                frame.set_visible(false);
+            }
+            Action::Close => {
+                frame.close();
+            }
+            Action::Modify => {
+                         self.annotation=true;
+            }
+            Action::TakeAnotherScreenshot => {
+                self.image_viewer = false;
+                self.mode_radio = SelectionMode::Screen;
+                self.mode = false;
+                frame.set_visible(false);
+                self.mac_bug = true;
+            }
+            Action::Save => {
+                let default_name = std::thread::spawn(move || {
+                    let today = Utc::now().to_string()
+                    .replace("-", "")
+                    .replace(":", "_")
+                    .replace(" ", "")
+                    .to_string();
+                format!("screenshot_{}", today)
+                }).join().expect("Fail to compute date");
+                let result = match FileDialog::new()
+                    .set_location(&self.default_location)
+                    .set_filename(&default_name[..27])
+                    .add_filter("PNG Image", &["png"])
+                    .add_filter("JPEG Image", &["jpg", "jpeg"])
+                    .add_filter("GIF Image", &["gif"])
+                    .show_save_single_file() {
+                Ok(res) => {res},
+                Err(_) => {
+                    // uncorrect path set by user
+                    FileDialog::new()
+                    .set_location("~")
+                    .set_filename(&default_name[..27])
+                    .add_filter("PNG Image", &["png"])
+                    .add_filter("JPEG Image", &["jpg", "jpeg"])
+                    .add_filter("GIF Image", &["gif"])
+                    .show_save_single_file()
+                    .unwrap()
+                }
+            };
+                match result {
+                    Some(result) => {
+                        fs::write(result.clone(), self.buffer.clone().unwrap())
+                            .unwrap();
+                    }
+                    None => {}
+                };
+            }
+        }
+    }
+}
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        ctx.set_visuals(egui::Visuals::light());
+        if self.mac_bug {
+            std::thread::sleep(Duration::from_millis(100));
+            frame.set_visible(true);
+            self.mac_bug = false;
+        }
         if self.window_hidden {
             std::thread::sleep(Duration::from_millis(300));
             let screen = self.schermi.get_screen();
             let image;
-            if self.mode {
+            if self.mode || self.annotation {
                 image = screen
                     .capture_area(
                         self.screen_rect.x_left.floor() as i32,
@@ -100,11 +326,21 @@ impl eframe::App for MyApp {
                 load_image_from_memory(&self.buffer.clone().unwrap()).unwrap(),
                 Default::default(),
             ));
-
+            //fs::write("screen.png", self.buffer.clone().unwrap()).unwrap();
             self.window_hidden = false;
             self.image_viewer = true;
             self.mode = false;
-            frame.set_visible(true);
+            self.annotation = false;
+            self.annotation_element.pen.clear();
+            self.annotation_element.rect.clear();
+            self.annotation_element.text.clear();
+            self.annotation_element.arrow.clear();
+            self.annotation_element.line.clear();
+            self.annotation_element.circle.clear();
+            self.last_modify.clear();
+            frame.set_visible(false);
+            self.mac_bug=true;
+            //frame.set_visible(true);
         }
 
         egui::Window::new("Screenshot")
@@ -130,119 +366,78 @@ impl eframe::App for MyApp {
                         cross_justify: true,
                     },
                     |ui| {
-                        //  let mut text = self.timer.get_seconds().to_string();
+
+                        match self.shortcut_set.listener(ctx, self.image_viewer) {
+                            Some(action) => self.run_action(action, ctx, frame),
+                            None => {}
+                        }
 
                         if !self.image_viewer {
                             if ui
-                                .selectable_value(&mut self.mode_radio, Enum::Screen, "  🖵  ")
+                                .selectable_value(
+                                    &mut self.mode_radio,
+                                    SelectionMode::Screen,
+                                    "  🖵  ",
+                                )
                                 .on_hover_text("Capture the entire screen")
                                 .clicked()
                             {
-                                self.mode = false;
+                              self.run_action(Action::SetEntireScreen, ctx, frame)
                             };
                             if ui
-                                .selectable_value(&mut self.mode_radio, Enum::Selection, "  ⛶  ")
+                                .selectable_value(
+                                    &mut self.mode_radio,
+                                    SelectionMode::Selection,
+                                    "  ⛶  ",
+                                )
                                 .on_hover_text("Capture the selection")
                                 .clicked()
                             {
-                                self.mode = true;
+                               self.run_action(Action::SetSelection, ctx, frame)
                             };
                             if ui
-                                .button(" 🕓 ")
-                                .on_hover_text("Take a screenshot with timer")
-                                .clicked()
-                            {
-                                self.timer.open_timer_form();
-                            }
+                            .button(" 🕓 ")
+                            .on_hover_text("Take a screenshot with timer")
+                            .clicked()
+                        {
+                            self.timer.open_timer_form();
+                        }
 
-                            if self.timer.is_timer_form_open() {
-                                ui.label("Timer (seconds):");
-                                ui.add(egui::Slider::new(&mut self.timer.seconds, 0..=240));
+                        if self.timer.is_timer_form_open() {
+                            ui.label("Timer (seconds):");
+                            ui.add(egui::Slider::new(&mut self.timer.seconds, 0..=60));
 
-                                if ui.button("Start Timer").clicked() {
-                                    if self.timer.get_seconds() > 0 {
-                                        self.timer.start_timer();
-                                    } else {
-                                        frame.set_visible(false);
-                                        self.window_hidden = true;
-                                    }
-                                }
-
-                                if ui.button("Cancel").clicked() {
-                                    self.timer.cancel_timer();
-                                }
-                            }
-
-                            if self.timer.is_timer_running() {
+                            if ui.button("Start Timer").clicked() {
                                 /*
-                                Metodo coi thread -- la label non appare
-
-                                 ui.label(format!("screenshot tra: {}", self.timer.get_seconds()));
-
-                                   let seconds = self.timer.get_seconds();
-
-                                   let (sx, rx) = std::sync::mpsc::channel::<u32>();
-                                   let timer_thread = thread::spawn(move || {
-                                       for _ in 1..=seconds {
-                                           sx.send(1).unwrap();
-                                           thread::sleep(Duration::from_secs(1));
-                                       }
-                                   });
-
-                                   for _ in rx {
-                                       self.timer.get_seconds() -= 1;
-                                       ctx.request_repaint();
-                                       if self.timer.get_seconds() == 0 {
-                                           frame.set_visible(false);
-                                           self.window_hidden = true;
-                                       }
-                                   }
-
-                                   timer_thread.join().unwrap();
-
-                                   Metodo col ciclo -- la label non compare
-
-                                   if let Some(_) = self.timer.last_decrement_time {
-                                       let mut start_time = self.timer.last_decrement_time.unwrap();
-                                       while self.timer.get_seconds() > 0 {
-                                           let elapsed_time = start_time.elapsed().as_secs() as u32;
-
-                                           if elapsed_time >= 1 {
-                                               self.timer.get_seconds() -= elapsed_time;
-
-                                               start_time = std::time::Instant::now();
-                                               if self.timer.get_seconds() <= 0 {
-                                                   self.timer.get_seconds() = 0;
-                                                   self.timer.is_timer_running = false;
-                                                   frame.set_visible(false);
-                                                   self.window_hidden = true;
-                                               }
-                                           }
-                                       }
-
-                                   }
-                                   */
-                                // ui.label(format!("Screenshot tra: {}", self.timer.get_seconds() - 1));
-
-                                if self.timer.get_seconds() > 0 {
-                                    std::thread::sleep(Duration::from_secs(1));
-                                    self.timer.handle_positive_timer();
-                                    ctx.request_repaint();
-                                }
-
-                                if self.timer.get_seconds() <= 0 {
-                                    self.timer.handle_negative_timer();
-                                    frame.set_visible(false);
-                                    self.window_hidden = true;
-                                }
+                                N.B: il bottone ha il solo compito di comunicare l'intenzione di avviare il timer.
+                                     Sarà poi il blocco 'if self.timer.is_timer_running { }' ad attivare
+                                     effettivamente il timer decrementando i secondi.
+                                 */
+                                self.run_action(Action::SettingTimer, ctx, frame);
                             }
 
+                            if ui.button("Cancel").clicked() {
+                                self.run_action(Action::CancelTimer, ctx, frame);
+                            }
+                        }
+
+                        if self.timer.is_timer_running() {
+                          //  ui.label(format!("Screenshot tra: {}", self.timer.seconds - 1));
+                       
+                            self.run_action(Action::StartTimer, ctx, frame);
+
+                            if ui.button("Cancel").clicked() {
+                                self.run_action(Action::CancelTimer, ctx, frame);
+                            }
+                        }
                             if ui.button("  Options  ").clicked() {
-                                self.show_options = true;
+                                self.run_action(Action::Options, ctx, frame)
+                            }
+                            if self.show_options {
+                                self.run_action(Action::Options, ctx, frame)
                             }
                             if ui.button("  Capture  ").clicked() {
-                                frame.set_visible(false);
-                                self.window_hidden = true;
+                               self.run_action(Action::Capture, ctx, frame)
                             }
                             if ui
                                 .add(
@@ -251,63 +446,156 @@ impl eframe::App for MyApp {
                                 .on_hover_text("Close")
                                 .clicked()
                             {
-                                frame.close();
+                                self.run_action(Action::Close, ctx, frame)
+                            }
+                        } else if self.image_viewer && !self.annotation {
+                            if ui.button("  Modify  ").clicked() {
+                                self.run_action(Action::Modify, ctx, frame)
+                            }
+                            if ui.button("  Take another Screenshot  ").clicked() {
+                            self.run_action(Action::TakeAnotherScreenshot, ctx, frame)
+                            }
+                            if ui.button("  Save  ").clicked() {
+                                self.run_action(Action::Save, ctx, frame)
+                            }
+                            if ui.button("  Save on clipboard ").clicked() {
+                                
+                               let mut ctx_clip = Clipboard::new().unwrap();
+                               let image =load_image_from_memory(&self.buffer.clone().unwrap()).unwrap() ;
+                               let bytes=image.as_raw();
+
+                               let img_data = ImageData {
+                                 width: image.width() as usize,
+                                 height:image.height() as usize,
+                                  bytes:Cow::from(bytes.as_ref()),
+                                 };
+                               ctx_clip.set_image(img_data).unwrap();
+                       
+                            }
+                            if ui
+                                .add(
+                                    egui::Button::new("  X  ").rounding(egui::Rounding::same(50.0)),
+                                )
+                                .on_hover_text("Close")
+                                .clicked()
+                            {
+                                self.run_action(Action::Close, ctx, frame)
                             }
                         } else {
-                            if ui.button("  Modify  ").clicked() {}
-                            if ui.button("  Take another Screenshot  ").clicked() {
-                                self.image_viewer = false;
-                                if self.mode_radio == Enum::Selection {
-                                    self.mode = true;
-                                } else {
-                                    self.mode = false;
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Pen,
+                                "  🖊  ",
+                            )
+                            .on_hover_text("Draw");
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Line,
+                                "  /  ",
+                            )
+                            .on_hover_text("Draw a line");
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Arrow,
+                                "  ↖  ",
+                            )
+                            .on_hover_text("Draw an arrow");
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Rect,
+                                "  ☐  ",
+                            )
+                            .on_hover_text("Draw a rectangle");
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Circle,
+                                "  ⭕  ",
+                            )
+                            .on_hover_text("Draw a circle");
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Text,
+                                "  Text  ",
+                            )
+                            .on_hover_text("Text");
+                            ui.label("|");
+                            ui.selectable_value(
+                                &mut self.selection_annotation,
+                                SelectionAnnotation::Crop,
+                                "  ⛶  ",
+                            )
+                            .on_hover_text("Crop");
+                            if self.selection_annotation==SelectionAnnotation::Crop{
+                                if ui.button("  Save crop  ").clicked() {
+                                    self.selection_annotation = SelectionAnnotation::NotSelected;
+                                    self.window_hidden=true;
                                 }
                             }
-                            if ui.button("  Save  ").clicked() {                    
-                                let default_name = std::thread::spawn(move || {
-                                    let today = Utc::now().to_string()
-                                    .replace("-", "")
-                                    .replace(":", "_")
-                                    .replace(" ", "")
-                                    .to_string();
-                                format!("screenshot_{}", today)
-                                }).join().expect("Fail to compute date");
-                                let result = match FileDialog::new()
-                                    .set_location(&self.default_location)
-                                    .set_filename(&default_name[..27])
-                                    .add_filter("PNG Image", &["png"])
-                                    .add_filter("JPEG Image", &["jpg", "jpeg"])
-                                    .add_filter("GIF Image", &["gif"])
-                                    .show_save_single_file() {
-                                Ok(res) => {res},
-                                Err(_) => {
-                                    // uncorrect path set by user
-                                    FileDialog::new()
-                                    .set_location("~")
-                                    .set_filename(&default_name[..27])
-                                    .add_filter("PNG Image", &["png"])
-                                    .add_filter("JPEG Image", &["jpg", "jpeg"])
-                                    .add_filter("GIF Image", &["gif"])
-                                    .show_save_single_file()
-                                    .unwrap()
-                                }
-                            };
-                                match result {
-                                    Some(result) => {
-                                        fs::write(result.clone(), self.buffer.clone().unwrap())
-                                            .unwrap();
+                            ui.label("|");
+                            egui::stroke_ui(ui, &mut self.annotation_element.stroke, "Stroke");
+                            ui.label("|");
+                            if ui.button("  ⟲  ").clicked() {
+                                if let Some(last) = self.last_modify.pop() {
+                                    match last {
+                                        SelectionAnnotation::NotSelected => {}
+                                        SelectionAnnotation::Pen => {
+                                            self.annotation_element
+                                                .pen
+                                                .remove(self.annotation_element.pen.len() - 2);
+                                        }
+                                        SelectionAnnotation::Line => {
+                                            self.annotation_element
+                                                .line
+                                                .remove(self.annotation_element.line.len() - 2);
+                                        }
+                                        SelectionAnnotation::Arrow => {
+                                            self.annotation_element
+                                                .arrow
+                                                .remove(self.annotation_element.arrow.len() - 2);
+                                        }
+                                        SelectionAnnotation::Rect => {
+                                            self.annotation_element
+                                                .rect
+                                                .remove(self.annotation_element.rect.len() - 2);
+                                        }
+                                        SelectionAnnotation::Circle => {
+                                            self.annotation_element
+                                                .circle
+                                                .remove(self.annotation_element.circle.len() - 2);
+                                        }
+                                        SelectionAnnotation::Text => {
+                                            self.annotation_element.text.pop();
+                                        }
+                                        SelectionAnnotation::Crop => {}
                                     }
-                                    None => {}
-                                };
+                                }
                             }
-                            if ui
-                                .add(
-                                    egui::Button::new("  X  ").rounding(egui::Rounding::same(50.0)),
-                                )
-                                .on_hover_text("Close")
-                                .clicked()
-                            {
-                                frame.close();
+                            if ui.button("  Cancel  ").clicked() {
+                                self.annotation_element.pen.clear();
+                                self.annotation_element.rect.clear();
+                                self.annotation_element.text.clear();
+                                self.annotation_element.arrow.clear();
+                                self.annotation_element.line.clear();
+                                self.annotation_element.circle.clear();
+                                self.last_modify.clear();
+                                self.selection_annotation = SelectionAnnotation::NotSelected;
+                                self.annotation = false;
+                            }
+                            if ui.button("  Save modify  ").clicked() {
+                                let dim_image = resize_image_to_fit_container(
+                                    1000.0,
+                                    600.0,
+                                    self.texture.clone().unwrap().size_vec2()[0],
+                                    self.texture.clone().unwrap().size_vec2()[1],
+                                );
+                                self.screen_rect = RectangleCrop {
+                                    x_left: ((frame.info().window_info.size[0]) / 2.0)-(dim_image.0/2.0),
+                                    y_left: ((frame.info().window_info.size[1]) / 2.0)-(dim_image.1/2.0)+ frame.info().window_info.position.unwrap()[1],
+                                    width: dim_image.0,
+                                    height: dim_image.1,
+                                };
+                                self.selection_annotation = SelectionAnnotation::NotSelected;
+                                self.window_hidden=true;
                             }
                         }
                     },
@@ -348,15 +636,311 @@ impl eframe::App for MyApp {
             .resizable(false)
             .open(&mut self.image_viewer)
             .show(ctx, |ui| {
-                ui.image(
-                    &self.texture.clone().unwrap(),
-                    resize_image_to_fit_container(
-                        1000.0,
-                        600.0,
-                        self.texture.clone().unwrap().size_vec2()[0],
-                        self.texture.clone().unwrap().size_vec2()[1],
-                    ),
+                // ui.image(
+                //     &self.texture.clone().unwrap(),
+                //     resize_image_to_fit_container(
+                //         1000.0,
+                //         600.0,
+                //         self.texture.clone().unwrap().size_vec2()[0],
+                //         self.texture.clone().unwrap().size_vec2()[1],
+                //     ),
+                // );
+                let dim_image = resize_image_to_fit_container(
+                    1000.0,
+                    600.0,
+                    self.texture.clone().unwrap().size_vec2()[0],
+                    self.texture.clone().unwrap().size_vec2()[1],
                 );
+                let (mut response, painter) =
+                    ui.allocate_painter(egui::vec2(dim_image.0, dim_image.1), egui::Sense::drag());
+                painter.image(
+                    self.texture.clone().unwrap().id(),
+                    egui::Rect::from_center_size(
+                        egui::Pos2::new(
+                            (frame.info().window_info.size[0]) / 2.0,
+                            (frame.info().window_info.size[1]) / 2.0,
+                        ),
+                        egui::Vec2::new(dim_image.0, dim_image.1),
+                    ),
+                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                    egui::Color32::WHITE,
+                );
+                if self.annotation {
+                    match self.selection_annotation {
+                        SelectionAnnotation::NotSelected => {}
+                        SelectionAnnotation::Pen => {
+                            response
+                                .clone()
+                                .on_hover_cursor(egui::output::CursorIcon::PointingHand);
+                            if self.annotation_element.pen.is_empty() {
+                                self.annotation_element.pen.push(vec![]);
+                            }
+
+                            let current_line = self.annotation_element.pen.last_mut().unwrap();
+
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                if current_line.last()
+                                    != Some(&(pointer_pos, self.annotation_element.stroke))
+                                {
+                                    current_line
+                                        .push((pointer_pos, self.annotation_element.stroke));
+                                    response.mark_changed();
+                                }
+                            } else if !current_line.is_empty() {
+                                self.annotation_element.pen.push(vec![]);
+                                response.mark_changed();
+                                self.last_modify.push(SelectionAnnotation::Pen);
+                            }
+                        }
+                        SelectionAnnotation::Line => {
+                            response
+                                .clone()
+                                .on_hover_cursor(egui::output::CursorIcon::Crosshair);
+                            if self.annotation_element.line.is_empty() {
+                                self.annotation_element.line.push(vec![]);
+                            }
+
+                            let current_line = self.annotation_element.line.last_mut().unwrap();
+
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                if current_line.last()
+                                    != Some(&(pointer_pos, self.annotation_element.stroke))
+                                {
+                                    current_line
+                                        .push((pointer_pos, self.annotation_element.stroke));
+                                    response.mark_changed();
+                                }
+                            } else if !current_line.is_empty() {
+                                self.annotation_element.line.push(vec![]);
+                                response.mark_changed();
+                                self.last_modify.push(SelectionAnnotation::Line);
+                            }
+                        }
+                        SelectionAnnotation::Arrow => {
+                            response
+                                .clone()
+                                .on_hover_cursor(egui::output::CursorIcon::Crosshair);
+                            if self.annotation_element.arrow.is_empty() {
+                                self.annotation_element.arrow.push(vec![]);
+                            }
+
+                            let current_line = self.annotation_element.arrow.last_mut().unwrap();
+
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                if current_line.last()
+                                    != Some(&(pointer_pos, self.annotation_element.stroke))
+                                {
+                                    current_line
+                                        .push((pointer_pos, self.annotation_element.stroke));
+                                    response.mark_changed();
+                                }
+                            } else if !current_line.is_empty() {
+                                self.annotation_element.arrow.push(vec![]);
+                                response.mark_changed();
+                                self.last_modify.push(SelectionAnnotation::Arrow);
+                            }
+                        }
+                        SelectionAnnotation::Rect => {
+                            response
+                                .clone()
+                                .on_hover_cursor(egui::output::CursorIcon::Crosshair);
+                            if self.annotation_element.rect.is_empty() {
+                                self.annotation_element.rect.push(vec![]);
+                            }
+
+                            let current_line = self.annotation_element.rect.last_mut().unwrap();
+
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                if current_line.last()
+                                    != Some(&(pointer_pos, self.annotation_element.stroke))
+                                {
+                                    current_line
+                                        .push((pointer_pos, self.annotation_element.stroke));
+                                    response.mark_changed();
+                                }
+                            } else if !current_line.is_empty() {
+                                self.annotation_element.rect.push(vec![]);
+                                response.mark_changed();
+                                self.last_modify.push(SelectionAnnotation::Rect);
+                            }
+                        }
+                        SelectionAnnotation::Circle => {
+                            response
+                                .clone()
+                                .on_hover_cursor(egui::output::CursorIcon::Crosshair);
+                            if self.annotation_element.circle.is_empty() {
+                                self.annotation_element.circle.push(vec![]);
+                            }
+
+                            let current_line = self.annotation_element.circle.last_mut().unwrap();
+
+                            if let Some(pointer_pos) = response.interact_pointer_pos() {
+                                if current_line.last()
+                                    != Some(&(pointer_pos, self.annotation_element.stroke))
+                                {
+                                    current_line
+                                        .push((pointer_pos, self.annotation_element.stroke));
+                                    response.mark_changed();
+                                }
+                            } else if !current_line.is_empty() {
+                                self.annotation_element.circle.push(vec![]);
+                                response.mark_changed();
+                                self.last_modify.push(SelectionAnnotation::Circle);
+                            }
+                        }
+                        SelectionAnnotation::Text => {
+                            let res = egui::Area::new("text")
+                                .movable(true)
+                                .default_pos(egui::Pos2::new(
+                                    (frame.info().window_info.size[0] - 20.0) / 2.0,
+                                    (frame.info().window_info.size[1] - 20.0) / 2.0,
+                                ))
+                                .drag_bounds(egui::Rect::from_center_size(
+                                    egui::Pos2::new(
+                                        (frame.info().window_info.size[0]) / 2.0,
+                                        (frame.info().window_info.size[1]) / 2.0,
+                                    ),
+                                    egui::Vec2::new(dim_image.0, dim_image.1),
+                                ))
+                                .order(egui::layers::Order::Foreground)
+                                .show(ctx, |ui| {
+                                    ui.vertical(|ui| {
+                                        ui.label(
+                                            egui::RichText::new(format!(
+                                                "{}",
+                                                self.annotation_element.text2,
+                                            ))
+                                            .color(self.annotation_element.stroke.color)
+                                            .size(
+                                                self.annotation_element.stroke.width * 20.0 + 0.1,
+                                            ),
+                                        );
+                                        ui.horizontal(|ui| {
+                                            egui::TextEdit::multiline(
+                                                &mut self.annotation_element.text2,
+                                            )
+                                            .hint_text("Hello!")
+                                            .show(ui);
+                                            if ui.button("save").clicked() {
+                                                self.annotation_element.pos_text = true;
+                                                self.last_modify.push(SelectionAnnotation::Text);
+                                                self.selection_annotation = SelectionAnnotation::NotSelected;
+                                            };
+                                        })
+                                    });
+                                });
+                            if self.annotation_element.pos_text {
+                                self.annotation_element.pos_text = false;
+                                let r = res.response.rect;
+                                self.annotation_element.text.push((
+                                    egui::Pos2::new(r.left(), r.top()),
+                                    self.annotation_element.text2.clone(),
+                                    self.annotation_element.stroke.clone(),
+                                ));
+                                self.annotation_element.text2 = "Edit this text".to_string();
+                            }
+                        }
+                        SelectionAnnotation::Crop => {
+                           let pos= egui::Window::new("resize2")
+                                .title_bar(false)
+                                .default_size(egui::vec2(320.0, 240.0))
+                                .resizable(true)
+                                .movable(true)
+                                .default_pos(egui::Pos2::new(
+                                    (frame.info().window_info.size[0] - 320.0) / 2.0,
+                                    (frame.info().window_info.size[1] - 240.0) / 2.0,
+                                ))
+                                .drag_bounds(egui::Rect::from_center_size(
+                                    egui::Pos2::new(
+                                        (frame.info().window_info.size[0]) / 2.0,
+                                        (frame.info().window_info.size[1]) / 2.0,
+                                    ),
+                                    egui::Vec2::new(dim_image.0, dim_image.1),
+                                ))
+                                .frame(egui::Frame {
+                                    // fill: egui::Color32::TRANSPARENT,
+                                    stroke: egui::Stroke::new(1.5, egui::Color32::WHITE),
+                                    shadow: egui::epaint::Shadow::small_light(),
+                                    ..Default::default()
+                                })
+                                .show(ctx, |ui| {
+                                    ui.allocate_space(ui.available_size());
+                                });
+                                let r = pos.unwrap().response.rect;
+                                self.screen_rect = RectangleCrop {
+                                    x_left: r.left(),
+                                    y_left: r.top() + frame.info().window_info.position.unwrap()[1],
+                                    width: r.width(),
+                                    height: r.height(),
+                                };
+                        }
+                    }
+                }
+                let pen = self
+                    .annotation_element
+                    .pen
+                    .iter()
+                    .filter(|line| line.len() >= 2)
+                    .map(|line| {
+                        let points: Vec<egui::Pos2> = line.iter().map(|p| p.0).collect();
+                        let stroke = line[0].1;
+                        egui::Shape::line(points, stroke)
+                    });
+                let rect = self
+                    .annotation_element
+                    .rect
+                    .iter()
+                    .filter(|line| line.len() >= 2)
+                    .map(|line| {
+                        let rect = egui::Rect::from_two_pos(
+                            line.first().unwrap().0,
+                            line.last().unwrap().0,
+                        );
+                        egui::Shape::rect_stroke(rect, egui::Rounding::none(), line[0].1)
+                    });
+                let circle = self
+                    .annotation_element
+                    .circle
+                    .iter()
+                    .filter(|line| line.len() >= 2)
+                    .map(|line| {
+                        egui::Shape::circle_stroke(
+                            line.first().unwrap().0,
+                            line.first().unwrap().0.distance(line.last().unwrap().0),
+                            line[0].1,
+                        )
+                    });
+                let line = self
+                    .annotation_element
+                    .line
+                    .iter()
+                    .filter(|line| line.len() >= 2)
+                    .map(|line| {
+                        let vec = [line.first().unwrap().0, line.last().unwrap().0];
+                        egui::Shape::line_segment(vec, line[0].1)
+                    });
+
+                for el in self.annotation_element.arrow.clone() {
+                    if el.first().is_some() && el.last().is_some() {
+                        let vec = el.first().unwrap().0 - el.last().unwrap().0;
+                        painter.arrow(el.first().unwrap().0, -vec, el[0].1);
+                    }
+                }
+
+                for el in self.annotation_element.text.clone() {
+                    painter.text(
+                        el.0,
+                        egui::Align2::LEFT_TOP,
+                        el.1,
+                        egui::FontId::proportional(el.2.width * 20.0 + 0.1),
+                        el.2.color,
+                    );
+                }
+
+                painter.extend(pen);
+                painter.extend(line);
+                painter.extend(rect);
+                painter.extend(circle);
             });
 
         egui::Window::new("Options")
@@ -422,6 +1006,29 @@ impl eframe::App for MyApp {
                 height: r.height(),
             };
         }
+
+        if self.timer.is_timer_running() {
+            egui::Window::new("Countdown")
+                .title_bar(false)
+                .anchor(egui::Align2::RIGHT_TOP, [0.0, 10.0])
+                .frame(egui::Frame {
+                    fill: egui::Color32::GRAY,
+                    stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
+                    inner_margin: egui::style::Margin::same(15.0),
+                    rounding: egui::Rounding::same(20.0),
+                    ..Default::default()
+                })
+                .resizable(false)
+                .show(ctx, |ui| {
+                    let txt = format!("  {}  ", self.timer.get_seconds() - 1);
+                    ui.label(
+                        RichText::new(txt)
+                            .size(40.0)
+                            .color(Color32::DARK_RED)
+                    );                    
+                });
+        }
+
     }
 }
 
@@ -436,28 +1043,44 @@ fn load_image_from_memory(image_data: &[u8]) -> Result<egui::ColorImage, image::
     ))
 }
 
+/* fn color_image_to_bytes(color_image: &egui::ColorImage) -> Vec<u8> {
+    let mut bytes: Vec<u8> = Vec::new();
+    
+    // Ottieni le dimensioni dell'immagine
+    let width = color_image.width();
+    let height = color_image.height();
+    
+    // Aggiungi larghezza e altezza all'inizio dei bytes (4 bytes ciascuno)
+    bytes.extend_from_slice(&width.to_le_bytes());
+    bytes.extend_from_slice(&height.to_le_bytes());
+    
+    // Aggiungi i dati dei pixel all'array di bytes
+    for pixel in color_image.pixels() {
+        bytes.push(pixel.r());
+        bytes.push(pixel.g());
+        bytes.push(pixel.b());
+        bytes.push(pixel.a());
+    }
+    
+    bytes
+} */
+
 fn resize_image_to_fit_container(
     container_width: f32,
     container_height: f32,
     image_width: f32,
     image_height: f32,
 ) -> (f32, f32) {
-    let res = std::thread::spawn(move || {
-        let container_ratio = container_width / container_height;
-        let image_ratio = image_width / image_height;
+    let container_ratio = container_width / container_height;
+    let image_ratio = image_width / image_height;
 
-        if container_ratio > image_ratio {
-            // Il contenitore è più largo rispetto all'immagine, quindi adattiamo l'altezza dell'immagine.
-            let new_height = container_height;
-            let new_width = new_height * image_ratio;
-            (new_width, new_height)
-        } else {
-            // Il contenitore è più alto o ha lo stesso rapporto dell'immagine, quindi adattiamo la larghezza dell'immagine.
-            let new_width = container_width;
-            let new_height = new_width / image_ratio;
-            (new_width, new_height)
-        }
-    });
-
-    res.join().unwrap()
+    if container_ratio > image_ratio {
+        let new_height = container_height;
+        let new_width = new_height * image_ratio;
+        (new_width, new_height)
+    } else {
+        let new_width = container_width;
+        let new_height = new_width / image_ratio;
+        (new_width, new_height)
+    }
 }

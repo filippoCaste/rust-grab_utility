@@ -3,12 +3,13 @@ pub mod schermi {
 
     pub struct Schermi {
         screens: Vec<Screen>,
-        pub screen_no: usize
+        pub screen_no: usize,
+        pub show_screen_options:bool
     }
 
     impl Schermi {
         pub fn new() -> Self {
-            Schermi { screens: Screen::all().unwrap(), screen_no: 0 }
+            Schermi { screens: Screen::all().unwrap(), screen_no: 0, show_screen_options:false }
         }
 
         pub fn no_screens(&self) -> usize {
