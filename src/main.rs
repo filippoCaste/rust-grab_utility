@@ -135,9 +135,12 @@ impl MyApp{
     fn run_action(&mut self, action: Action, ctx: &egui::Context, frame: &mut eframe::Frame) {
         match action {
             Action::SetEntireScreen => {
+
+                self.mode_radio=SelectionMode::Screen;
                 self.mode = false;
             }
             Action::SetSelection => {
+                self.mode_radio=SelectionMode::Selection;
                 self.mode = true;
             }
             Action::SettingTimer => {
