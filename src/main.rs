@@ -155,11 +155,12 @@ impl MyApp{
               
                 let now = Instant::now();
                 if now.duration_since(self.timer.last_decrement().unwrap()).as_secs_f32() >= 1.0 {
-                    self.timer.seconds -= 1;
+                    self.timer.handle_positive_timer();
                     if self.timer.seconds == 0 {
-                        frame.set_visible(false);
-                        self.window_hidden=true;
-                        self.timer.close_timer_form();
+                       self.timer.handle_negative_timer(); 
+                       self.window_hidden = true;
+                       frame.set_visible(false);
+                       self.timer.close_timer_form();
                     }
                     self.timer.last_decrement_time = Some(now);
                 }
@@ -544,15 +545,7 @@ impl eframe::App for MyApp {
                                 self.annotation = false;
                             }
                             if ui.button("  Save modify  ").clicked() {
-                                let dim_image = resize_image_to_fit_container(
-                                    1000.0,
-                                    600.0,
-                                    self.texture.clone().unwrap().size_vec2()[0],
-                                    self.texture.clone().unwrap().size_vec2()[1],
-                                );
-
-                                let image=egui::widgets::Image::new(egui::TextureId::from(self.texture.as_ref().unwrap()),dim_image);
-
+                    
                                 self.selection_annotation = SelectionAnnotation::NotSelected;
                                 self.annotation = false;
                             }
