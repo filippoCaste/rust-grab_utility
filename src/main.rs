@@ -338,7 +338,12 @@ impl MyApp {
                                         .show(ui, |ui| {
                                             for shortcut in cloned_vec.iter_mut() {
                                                 ui.horizontal(|ui| {
-                                                    ui.checkbox(&mut shortcut.is_active, "");
+                                                    if ui
+                                                        .checkbox(&mut shortcut.is_active, "")
+                                                        .changed()
+                                                    {
+                                                        self.shortcut_set.change_active(shortcut);
+                                                    };
                                                     ui.label(shortcut.to_string(ctx));
                                                 });
                                                 if ui.button("  🗑  ").clicked() {
