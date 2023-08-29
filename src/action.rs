@@ -6,7 +6,7 @@ pub enum Action {
     StartTimer,
     CancelTimer,           //ctrl+alt+T
     Options,               //ctrl+O
-    Capture,               //ctrl+space
+    Capture,               //ctrl+enter
     Close,                 //ctrl+X
     Modify,                //ctrl+M
     TakeAnotherScreenshot, //ctrl+A

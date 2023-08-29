@@ -192,7 +192,7 @@ pub mod shortcut {
                 };
                 let s_capture = ShortCut {
                     name: Action::Capture.to_string(),
-                    shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::Space),
+                    shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::Enter),
                     is_active: true,
                     wants_image_viewer: false,
                     action: Action::Capture,
