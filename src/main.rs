@@ -8,6 +8,7 @@ use std::borrow::Cow;
 use std::time::Instant;
 use std::{fs, time::Duration};
 
+
 mod action;
 mod schermi;
 mod shortcut;
@@ -370,6 +371,7 @@ impl MyApp {
                                             if result.is_some() {
                                                 self.default_location =
                                                     result.unwrap().to_string_lossy().to_string();
+                                                   
                                             }
                                         }
                                         if set_path_text.changed() {
@@ -411,6 +413,15 @@ impl MyApp {
                 self.annotation = true;
             }
             Action::TakeAnotherScreenshot => {
+                self.annotation_element.pen.clear();
+                self.annotation_element.rect.clear();
+                self.annotation_element.text.clear();
+                self.annotation_element.arrow.clear();
+                self.annotation_element.line.clear();
+                self.annotation_element.circle.clear();
+                self.last_modify.clear();
+                self.selection_annotation = SelectionAnnotation::NotSelected;
+                self.annotation = false;
                 self.image_viewer = false;
                 self.mode_radio = SelectionMode::Screen;
                 self.show_options = false;
@@ -440,6 +451,7 @@ impl MyApp {
                 {
                     Ok(res) => res,
                     Err(_) => {
+                        
                         // uncorrect path set by user
                         FileDialog::new()
                             .set_location("~")
@@ -453,6 +465,7 @@ impl MyApp {
                 };
                 match result {
                     Some(result) => {
+                        println!("{:?}",result);
                         fs::write(result.clone(), self.buffer.clone().unwrap()).unwrap();
                     }
                     None => {}
@@ -511,7 +524,7 @@ impl MyApp {
 }
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        //println!("{:?}",frame.info());
+       
         ctx.set_visuals(egui::Visuals::light());
         if self.mac_bug {
             std::thread::sleep(Duration::from_millis(100));
