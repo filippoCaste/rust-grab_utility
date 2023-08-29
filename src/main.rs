@@ -1,6 +1,6 @@
 use arboard::{Clipboard, ImageData};
 use chrono::Utc;
-use eframe::egui;
+use eframe::egui::{self};
 use egui::{Color32, RichText};
 use image;
 use native_dialog::FileDialog;
@@ -14,7 +14,10 @@ mod shortcut;
 mod timer;
 
 use action::Action;
+use action::AllActionArr;
 use schermi::schermi::Schermi;
+use shortcut::shortcut::AllKeyArr;
+use shortcut::shortcut::NewShortcut;
 use shortcut::shortcut::ShortcutSet;
 use timer::timer::Timer;
 
@@ -53,6 +56,7 @@ struct MyApp {
     annotation_element: AnnotationElement,
     last_modify: Vec<SelectionAnnotation>,
     option: Options,
+    new_shortcut: NewShortcut,
 }
 
 struct RectangleCrop {
@@ -85,6 +89,7 @@ enum Options {
     Shortcut,
     Screen,
     Allocation,
+    NewShortcut,
 }
 
 struct AnnotationElement {
@@ -135,6 +140,7 @@ impl Default for MyApp {
                 pos_text: false,
             },
             option: Options::Shortcut,
+            new_shortcut: NewShortcut::default(),
         }
     }
 }
@@ -212,6 +218,12 @@ impl MyApp {
                                         Options::Screen,
                                         "  Change screen  ",
                                     );
+                                    ui.label("|");
+                                    ui.selectable_value(
+                                        &mut self.option,
+                                        Options::NewShortcut,
+                                        "  New shortcut  ",
+                                    );
                                 });
                             });
                             ui.separator();
@@ -260,6 +272,89 @@ impl MyApp {
                                                 );
                                             }
                                         });
+                                }
+                                Options::NewShortcut => {
+                                    ui.horizontal(|ui| {
+                                        /*
+                                        pub alt: bool,
+                                        pub ctrl: bool,
+                                        pub shift: bool,
+                                        pub mac_cmd: bool,
+                                        pub command: bool,
+                                        */
+                                        ui.vertical(|ui|{
+                                            ui.checkbox(&mut self.new_shortcut.modifier.alt, "");
+                                            ui.label("alt");
+     
+                                           /*  ui.checkbox(&mut self.new_shortcut.modifier.ctrl, "");
+                                            ui.label("ctrl"); */
+    
+                                            ui.checkbox(&mut self.new_shortcut.modifier.shift, "");
+                                            ui.label("shift");
+    
+                                          /*   ui.checkbox(&mut self.new_shortcut.modifier.mac_cmd, "");
+                                            ui.label("mac_cmd"); */
+    
+                                            ui.checkbox(&mut self.new_shortcut.modifier.command, "");
+                                            ui.label("command");
+                                        });
+                                      
+
+                                        egui::ComboBox::from_id_source("All actions")
+                                            .selected_text(if self.new_shortcut.is_default {
+                                                "Tutte le azioni".to_owned()
+                                            } else {
+                                                match self.new_shortcut.action {
+                                                    Some(a) => a.to_string(),
+                                                    None => "Tutte le azioni".to_owned(),
+                                                }
+                                            })
+                                            .show_ui(ui, |ui| {
+                                                for a in AllActionArr::new().all_action.iter() {
+                                                    let txt = format!("Action: {}", a.to_string());
+                                                    ui.selectable_value(
+                                                        &mut self.new_shortcut.action,
+                                                        Some(*a),
+                                                        txt,
+                                                    );
+                                                }
+                                            });
+
+                                        egui::ComboBox::from_id_source("All keys")
+                                            .selected_text(if self.new_shortcut.is_default {
+                                                "Tutte le chiavi".to_owned()
+                                            } else {
+                                                match self.new_shortcut.key {
+                                                    Some(k) => k.name().to_owned(),
+                                                    None => "Tutte le chiavi".to_owned(),
+                                                }
+                                            })
+                                            .show_ui(ui, |ui| {
+                                                for k in AllKeyArr::new().all_key.iter() {
+                                                    let txt = format!("Key: {}", k.name());
+                                                    ui.selectable_value(
+                                                        &mut self.new_shortcut.key,
+                                                        Some(*k),
+                                                        txt,
+                                                    );
+                                                }
+                                            });
+
+                                        if ui.button("add new shortcut").clicked() {
+                                            self.shortcut_set
+                                                .insert_new_shortcut(&mut self.new_shortcut);
+                                        }
+
+                                        if let Some(_) = self.new_shortcut.key {
+                                            self.new_shortcut.is_default = false;
+                                        }
+                                        if let Some(_) = self.new_shortcut.action {
+                                            self.new_shortcut.is_default = false;
+                                        }
+                                        if !self.new_shortcut.modifier.is_none() {
+                                            self.new_shortcut.is_default = false;
+                                        }
+                                    });
                                 }
                             }
                         });
@@ -487,7 +582,7 @@ impl eframe::App for MyApp {
                             if self.show_options {
                                 self.run_action(Action::Options, ctx, frame)
                             }
-                            if ui.button("  📋  ").clicked() {
+                            if ui.button("  📋  ").on_hover_text("Copy").clicked() {
                                 let mut ctx_clip = Clipboard::new().unwrap();
                                 let image =
                                     load_image_from_memory(&self.buffer.clone().unwrap()).unwrap();
@@ -628,14 +723,18 @@ impl eframe::App for MyApp {
                                 let mut mc_adj = 0.0;
                                 if cfg!(target_os = "windows") {
                                     adj = frame.info().native_pixels_per_point.unwrap();
-                                }
-                                else if cfg!(target_os = "macos") {
+                                } else if cfg!(target_os = "macos") {
                                     mc_adj = frame.info().window_info.position.unwrap()[1]
                                 }
-        
+
                                 self.screen_rect = RectangleCrop {
-                                    x_left: (((frame.info().window_info.size[0] - dim_image.0)/2.0))*adj ,
-                                    y_left: (((frame.info().window_info.size[1] - dim_image.1)/2.0)+ mc_adj) * adj,
+                                    x_left: ((frame.info().window_info.size[0] - dim_image.0)
+                                        / 2.0)
+                                        * adj,
+                                    y_left: (((frame.info().window_info.size[1] - dim_image.1)
+                                        / 2.0)
+                                        + mc_adj)
+                                        * adj,
                                     width: dim_image.0 * adj,
                                     height: dim_image.1 * adj,
                                 };
@@ -903,22 +1002,21 @@ impl eframe::App for MyApp {
                                     ui.allocate_space(ui.available_size());
                                 });
 
-                                let r = pos.unwrap().response.rect;
-                                let mut adj = 1.0;
-                                let mut mc_adj = 0.0;
-                                if cfg!(target_os = "windows") {
-                                    adj = frame.info().native_pixels_per_point.unwrap();
-                                }
-                                else if cfg!(target_os = "macos") {
-                                    mc_adj = frame.info().window_info.position.unwrap()[1]
-                                }
-                                self.screen_rect = RectangleCrop {
-                                    x_left: (r.left()) * adj,
-                                    y_left: (r.top() + mc_adj) * adj,
-                                    width: r.width() * adj,
-                                    height: r.height() * adj,
-                                };
+                            let r = pos.unwrap().response.rect;
+                            let mut adj = 1.0;
+                            let mut mc_adj = 0.0;
+                            if cfg!(target_os = "windows") {
+                                adj = frame.info().native_pixels_per_point.unwrap();
+                            } else if cfg!(target_os = "macos") {
+                                mc_adj = frame.info().window_info.position.unwrap()[1]
                             }
+                            self.screen_rect = RectangleCrop {
+                                x_left: (r.left()) * adj,
+                                y_left: (r.top() + mc_adj) * adj,
+                                width: r.width() * adj,
+                                height: r.height() * adj,
+                            };
+                        }
                     }
                 }
                 let pen = self
@@ -988,23 +1086,22 @@ impl eframe::App for MyApp {
                 painter.extend(circle);
             });
 
-            if self.mode == true {
-                let r = w.unwrap().response.rect;
-                let mut adj = 1.0;
-                let mut mc_adj = 0.0;
-                if cfg!(target_os = "windows") {
-                    adj = frame.info().native_pixels_per_point.unwrap();
-                }
-                else if cfg!(target_os = "macos") {
-                    mc_adj = frame.info().window_info.position.unwrap()[1]
-                }
-                self.screen_rect = RectangleCrop {
-                    x_left: (r.left()) * adj,
-                    y_left: (r.top() + mc_adj) * adj,
-                    width: r.width() * adj,
-                    height: r.height() * adj,
-                };
+        if self.mode == true {
+            let r = w.unwrap().response.rect;
+            let mut adj = 1.0;
+            let mut mc_adj = 0.0;
+            if cfg!(target_os = "windows") {
+                adj = frame.info().native_pixels_per_point.unwrap();
+            } else if cfg!(target_os = "macos") {
+                mc_adj = frame.info().window_info.position.unwrap()[1]
             }
+            self.screen_rect = RectangleCrop {
+                x_left: (r.left()) * adj,
+                y_left: (r.top() + mc_adj) * adj,
+                width: r.width() * adj,
+                height: r.height() * adj,
+            };
+        }
 
         if self.timer.is_timer_running() {
             egui::Window::new("Countdown")

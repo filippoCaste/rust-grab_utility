@@ -3,6 +3,30 @@ pub mod shortcut {
     use eframe::egui;
     use egui::{Key, KeyboardShortcut, Modifiers};
 
+    pub struct NewShortcut {
+        pub modifier: Modifiers,
+        pub key: Option<Key>,
+        pub action: Option<Action>,
+        pub is_default: bool,
+    }
+
+    impl NewShortcut {
+        pub fn default() -> Self {
+            Self {
+                modifier: Modifiers {
+                    alt: false,
+                    ctrl: false,
+                    shift: false,
+                    mac_cmd: false,
+                    command: false,
+                },
+                key: None,
+                action: None,
+                is_default: true,
+            }
+        }
+    }
+    #[derive(Clone)]
     pub struct ShortCut {
         name: String,
         shortcut: KeyboardShortcut,
@@ -15,7 +39,91 @@ pub mod shortcut {
         set: Vec<ShortCut>,
         pub show: bool,
     }
-
+    pub struct AllKeyArr {
+        pub all_key: Vec<Key>,
+    }
+    impl AllKeyArr {
+        pub fn new() -> Self {
+            Self {
+                all_key: vec![
+                    Key::ArrowDown,
+                    Key::ArrowLeft,
+                    Key::ArrowRight,
+                    Key::ArrowUp,
+                    Key::Escape,
+                    Key::Tab,
+                    Key::Backspace,
+                    Key::Enter,
+                    Key::Space,
+                    Key::Insert,
+                    Key::Delete,
+                    Key::Home,
+                    Key::End,
+                    Key::PageUp,
+                    Key::PageDown,
+                    Key::Minus,
+                    Key::PlusEquals,
+                    Key::Num0,
+                    Key::Num1,
+                    Key::Num2,
+                    Key::Num3,
+                    Key::Num4,
+                    Key::Num5,
+                    Key::Num6,
+                    Key::Num7,
+                    Key::Num8,
+                    Key::Num9,
+                    Key::A,
+                    Key::B,
+                    Key::C,
+                    Key::D,
+                    Key::E,
+                    Key::F,
+                    Key::G,
+                    Key::H,
+                    Key::I,
+                    Key::J,
+                    Key::K,
+                    Key::L,
+                    Key::M,
+                    Key::N,
+                    Key::O,
+                    Key::P,
+                    Key::Q,
+                    Key::R,
+                    Key::S,
+                    Key::T,
+                    Key::U,
+                    Key::V,
+                    Key::W,
+                    Key::X,
+                    Key::Y,
+                    Key::Z,
+                    Key::F1,
+                    Key::F2,
+                    Key::F3,
+                    Key::F4,
+                    Key::F5,
+                    Key::F6,
+                    Key::F7,
+                    Key::F8,
+                    Key::F9,
+                    Key::F10,
+                    Key::F11,
+                    Key::F12,
+                    Key::F13,
+                    Key::F14,
+                    Key::F15,
+                    Key::F16,
+                    Key::F17,
+                    Key::F18,
+                    Key::F19,
+                    Key::F20,
+                ],
+            }
+        }
+    }
+  
     impl ShortCut {
         fn listener_shortcut(&self, ctx: &egui::Context) -> Option<Action> {
             if ctx.input_mut(|i| i.consume_shortcut(&self.shortcut)) && self.is_active {
@@ -25,6 +133,15 @@ pub mod shortcut {
             }
         }
 
+        fn shortcut_builder(modifiers: Modifiers, key: Key, action: Action) -> Self {
+            Self {
+                name: action.to_string(),
+                shortcut: KeyboardShortcut { modifiers, key },
+                is_active: true,
+                wants_image_viewer: action.wants_image_viewer(),
+                action: action,
+            }
+        }
         pub fn to_string(&self, ctx: &egui::Context) -> String {
             let mut output = self.name.clone();
             output.push_str(&" -> ".to_string());
@@ -126,6 +243,32 @@ pub mod shortcut {
             }
         }
 
+        pub fn insert_new_shortcut(&mut self, new_shortcut: &mut NewShortcut) -> Option<ShortCut> {
+            if let Some(_) = new_shortcut.action {
+                if let Some(_) = new_shortcut.key {
+                    if !new_shortcut.modifier.is_none() {
+                        let new_sc = ShortCut::shortcut_builder(
+                            new_shortcut.modifier,
+                            new_shortcut.key.unwrap(),
+                            new_shortcut.action.unwrap(),
+                        );
+                        for sc in self.set.iter() {
+                            if sc.shortcut.eq(&new_sc.shortcut) {
+                                return None;
+                            }
+                        }
+                        self.set.push(new_sc.clone());
+                        Some(new_sc.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
         pub fn listener(&self, ctx: &egui::Context, is_image: bool) -> Option<Action> {
             for sc in self.set.iter() {
                 if sc.wants_image_viewer == is_image && sc.is_active {
@@ -136,15 +279,6 @@ pub mod shortcut {
             }
             None
         }
-
-        /*   pub fn to_string(&self, ctx: &egui::Context) -> Vec<String> {
-            let mut output = Vec::new();
-            for sc in self.set.iter() {
-                let sc_name = sc.to_string(ctx);
-                output.push(sc_name);
-            }
-            output
-        } */
 
         pub fn to_vec_mut(&mut self) -> Vec<&mut ShortCut> {
             let mut output = Vec::new();
