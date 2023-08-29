@@ -22,9 +22,19 @@ use shortcut::shortcut::ShortcutSet;
 use timer::timer::Timer;
 
 fn main() -> Result<(), eframe::Error> {
+    let icon: Vec<u8> = image::open("./icon.png")
+        .expect("Error")
+        .to_rgba8()
+        .to_vec();
+
     let options = eframe::NativeOptions {
         maximized: true,
         decorated: false,
+        icon_data: Some(eframe::IconData {
+            rgba: icon,
+            width: 256,
+            height: 256,
+        }),
         transparent: true,
         resizable: false,
         ..Default::default()
@@ -443,10 +453,9 @@ impl MyApp {
                     None => {}
                 };
             }
-            Action::Copy=>{
+            Action::Copy => {
                 let mut ctx_clip = Clipboard::new().unwrap();
-                let image =
-                    load_image_from_memory(&self.buffer.clone().unwrap()).unwrap();
+                let image = load_image_from_memory(&self.buffer.clone().unwrap()).unwrap();
                 let bytes = image.as_raw();
 
                 let img_data = ImageData {
@@ -456,7 +465,7 @@ impl MyApp {
                 };
                 ctx_clip.set_image(img_data).unwrap();
             }
-            Action::Undo=>{
+            Action::Undo => {
                 if let Some(last) = self.last_modify.pop() {
                     match last {
                         SelectionAnnotation::NotSelected => {}
@@ -664,7 +673,7 @@ impl eframe::App for MyApp {
                                 self.run_action(Action::Options, ctx, frame)
                             }
                             if ui.button("  📋  ").on_hover_text("Copy").clicked() {
-                             self.run_action(Action::Copy, ctx, frame);
+                                self.run_action(Action::Copy, ctx, frame);
                             }
                             if ui.button("  Take another Screenshot  ").clicked() {
                                 self.run_action(Action::TakeAnotherScreenshot, ctx, frame)
@@ -736,7 +745,7 @@ impl eframe::App for MyApp {
                             egui::stroke_ui(ui, &mut self.annotation_element.stroke, "Stroke");
                             ui.label("|");
                             if ui.button("  ⟲  ").clicked() {
-                              self.run_action(Action::Undo, ctx, frame);
+                                self.run_action(Action::Undo, ctx, frame);
                             }
                             if ui.button("  Cancel  ").clicked() {
                                 self.annotation_element.pen.clear();
