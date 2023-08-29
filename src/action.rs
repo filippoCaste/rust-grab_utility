@@ -16,6 +16,8 @@ pub enum Action {
 }
 
 impl Action {
+
+    
     pub fn to_string(self) -> String {
         match self {
             Action::SetEntireScreen => String::from("Set entire screen"),
