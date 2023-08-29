@@ -17,7 +17,11 @@
 9. [x] **Multi-monitor Support**: possibilità di catturare le schermate anche degli altri schermi.
 
 ## Esempio di utilizzo
-![Screenshot d'esempio](esempio.png)
+
+![Schermata iniziale + pannello opzioni](esempio_1.png)
+
+![A schermata catturata, modifica dell'immagine](esempio_2.png)
+
 - `🖵`: per catturare la schermata intera
 - `⛶`: per catturare soltanto la porzione di schermo inquadrata
 - `🕓`: per impostare un timer
