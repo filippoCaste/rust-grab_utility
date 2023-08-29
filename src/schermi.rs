@@ -48,5 +48,9 @@ pub mod schermi {
         pub fn get_screen(&self) -> Screen {
             self.screens[self.screen_no]
         }
+
+        pub fn get_default_screen(&self) -> Screen {
+            self.screens[self.default_screen_no]
+        }
     }
 }

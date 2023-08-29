@@ -69,7 +69,7 @@ struct MyApp {
     new_shortcut: NewShortcut,
     get_real_monitor: u8,
 }
-
+#[derive(Debug)]
 struct RectangleCrop {
     x_left: f32,
     y_left: f32,
@@ -381,7 +381,7 @@ impl MyApp {
                                     ui.heading("Change Screen");
                                     ui.add_space(10.0);
                                     egui::ComboBox::from_id_source("Schermi")
-                                        .selected_text("  Change screen  ")
+                                        .selected_text(format!("Screen {}", self.schermi.screen_no))
                                         .show_ui(ui, |ui| {
                                             for i in 0..self.schermi.no_screens() {
                                                 let txt = format!("Screen {}", i);
@@ -392,6 +392,10 @@ impl MyApp {
                                                 );
                                             }
                                         });
+                                    if self.schermi.screen_no != self.schermi.default_screen_no {
+                                        self.mode_radio = SelectionMode::Screen;
+                                        self.mode = false;
+                                    }
                                 }
                             }
                         });
@@ -517,8 +521,11 @@ impl eframe::App for MyApp {
         }
         if self.window_hidden {
             std::thread::sleep(Duration::from_millis(300));
-            let screen = self.schermi.get_screen();
+            let mut screen = self.schermi.get_screen();
             let image;
+            if self.annotation {
+                screen = self.schermi.get_default_screen();
+            }
             if self.mode || self.annotation {
                 image = screen
                     .capture_area(
@@ -779,7 +786,8 @@ impl eframe::App for MyApp {
                                 if cfg!(target_os = "windows") {
                                     adj = frame.info().native_pixels_per_point.unwrap();
                                 } else if cfg!(target_os = "macos") {
-                                    mc_adj = frame.info().window_info.position.unwrap()[1]
+                                    mc_adj = frame.info().window_info.monitor_size.unwrap().y
+                                        - frame.info().window_info.size.y;
                                 }
 
                                 self.screen_rect = RectangleCrop {
@@ -1063,7 +1071,8 @@ impl eframe::App for MyApp {
                             if cfg!(target_os = "windows") {
                                 adj = frame.info().native_pixels_per_point.unwrap();
                             } else if cfg!(target_os = "macos") {
-                                mc_adj = frame.info().window_info.position.unwrap()[1]
+                                mc_adj = frame.info().window_info.monitor_size.unwrap().y
+                                    - frame.info().window_info.size.y;
                             }
                             self.screen_rect = RectangleCrop {
                                 x_left: (r.left()) * adj,
@@ -1148,7 +1157,8 @@ impl eframe::App for MyApp {
             if cfg!(target_os = "windows") {
                 adj = frame.info().native_pixels_per_point.unwrap();
             } else if cfg!(target_os = "macos") {
-                mc_adj = frame.info().window_info.position.unwrap()[1]
+                mc_adj = frame.info().window_info.monitor_size.unwrap().y
+                    - frame.info().window_info.size.y;
             }
             self.screen_rect = RectangleCrop {
                 x_left: (r.left()) * adj,
