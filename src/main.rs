@@ -229,10 +229,20 @@ impl MyApp {
                             ui.separator();
                             match self.option {
                                 Options::Shortcut => {
-                                    for shortcut in self.shortcut_set.to_vec_mut() {
+                                    let mut cloned_vec: Vec<_> = self
+                                        .shortcut_set
+                                        .to_vec_mut()
+                                        .iter()
+                                        .map(|item| (*item).clone())
+                                        .collect();
+
+                                    for shortcut in cloned_vec.iter_mut() {
                                         ui.horizontal(|ui| {
                                             ui.checkbox(&mut shortcut.is_active, "");
                                             ui.label(shortcut.to_string(ctx));
+                                            if ui.button("delete shortcut").clicked() {
+                                                self.shortcut_set.delete_shotucut(shortcut);
+                                            }
                                         });
                                     }
                                 }
@@ -275,50 +285,31 @@ impl MyApp {
                                 }
                                 Options::NewShortcut => {
                                     ui.horizontal(|ui| {
-                                        /*
-                                        pub alt: bool,
-                                        pub ctrl: bool,
-                                        pub shift: bool,
-                                        pub mac_cmd: bool,
-                                        pub command: bool,
-                                        */
-                                        ui.vertical(|ui|{
+                                        ui.vertical(|ui| {
                                             ui.checkbox(&mut self.new_shortcut.modifier.alt, "");
                                             ui.label("alt");
-     
-                                           /*  ui.checkbox(&mut self.new_shortcut.modifier.ctrl, "");
+
+                                            /*  ui.checkbox(&mut self.new_shortcut.modifier.ctrl, "");
                                             ui.label("ctrl"); */
-    
+
                                             ui.checkbox(&mut self.new_shortcut.modifier.shift, "");
                                             ui.label("shift");
-    
-                                          /*   ui.checkbox(&mut self.new_shortcut.modifier.mac_cmd, "");
-                                            ui.label("mac_cmd"); */
-    
-                                            ui.checkbox(&mut self.new_shortcut.modifier.command, "");
-                                            ui.label("command");
-                                        });
-                                      
 
-                                        egui::ComboBox::from_id_source("All actions")
-                                            .selected_text(if self.new_shortcut.is_default {
-                                                "Tutte le azioni".to_owned()
+                                            /*   ui.checkbox(&mut self.new_shortcut.modifier.mac_cmd, "");
+                                            ui.label("mac_cmd"); */
+
+                                            ui.checkbox(
+                                                &mut self.new_shortcut.modifier.command,
+                                                "",
+                                            );
+                                            let mut text = String::new();
+                                            if cfg!(target_os = "macos") {
+                                                text = "Cmd".to_string();
                                             } else {
-                                                match self.new_shortcut.action {
-                                                    Some(a) => a.to_string(),
-                                                    None => "Tutte le azioni".to_owned(),
-                                                }
-                                            })
-                                            .show_ui(ui, |ui| {
-                                                for a in AllActionArr::new().all_action.iter() {
-                                                    let txt = format!("Action: {}", a.to_string());
-                                                    ui.selectable_value(
-                                                        &mut self.new_shortcut.action,
-                                                        Some(*a),
-                                                        txt,
-                                                    );
-                                                }
-                                            });
+                                                text = "Ctrl".to_string();
+                                            }
+                                            ui.label(text);
+                                        });
 
                                         egui::ComboBox::from_id_source("All keys")
                                             .selected_text(if self.new_shortcut.is_default {
@@ -335,6 +326,26 @@ impl MyApp {
                                                     ui.selectable_value(
                                                         &mut self.new_shortcut.key,
                                                         Some(*k),
+                                                        txt,
+                                                    );
+                                                }
+                                            });
+
+                                        egui::ComboBox::from_id_source("All actions")
+                                            .selected_text(if self.new_shortcut.is_default {
+                                                "Tutte le azioni".to_owned()
+                                            } else {
+                                                match self.new_shortcut.action {
+                                                    Some(a) => a.to_string(),
+                                                    None => "Tutte le azioni".to_owned(),
+                                                }
+                                            })
+                                            .show_ui(ui, |ui| {
+                                                for a in AllActionArr::new().all_action.iter() {
+                                                    let txt = format!("Action: {}", a.to_string());
+                                                    ui.selectable_value(
+                                                        &mut self.new_shortcut.action,
+                                                        Some(*a),
                                                         txt,
                                                     );
                                                 }

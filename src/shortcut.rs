@@ -123,7 +123,7 @@ pub mod shortcut {
             }
         }
     }
-  
+
     impl ShortCut {
         fn listener_shortcut(&self, ctx: &egui::Context) -> Option<Action> {
             if ctx.input_mut(|i| i.consume_shortcut(&self.shortcut)) && self.is_active {
@@ -155,14 +155,14 @@ pub mod shortcut {
             let mut output = Vec::new();
             {
                 let s_set_entire_screen = ShortCut {
-                    name: "Full screen".to_string(),
+                    name: Action::SetEntireScreen.to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::F),
                     is_active: true,
                     wants_image_viewer: false,
                     action: Action::SetEntireScreen,
                 };
                 let s_set_selection = ShortCut {
-                    name: "Set the selection".to_string(),
+                    name: Action::SetSelection.to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::ArrowDown),
                     is_active: true,
                     wants_image_viewer: false,
@@ -170,56 +170,56 @@ pub mod shortcut {
                 };
 
                 let s_start_timer = ShortCut {
-                    name: "Start timer".to_string(),
+                    name: Action::SettingTimer.to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::T),
                     is_active: true,
                     wants_image_viewer: false,
                     action: Action::SettingTimer,
                 };
                 let s_cancel_timer = ShortCut {
-                    name: "Cancek timer".to_string(),
+                    name: Action::CancelTimer.to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND | Modifiers::ALT, Key::T),
                     is_active: true,
                     wants_image_viewer: false,
                     action: Action::CancelTimer,
                 };
                 let s_options = ShortCut {
-                    name: "Open Options".to_string(),
+                    name: Action::Options.to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::O),
                     is_active: true,
                     wants_image_viewer: false,
                     action: Action::Options,
                 };
                 let s_capture = ShortCut {
-                    name: "Do the screenshot".to_string(),
+                    name: Action::Capture.to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::C),
                     is_active: true,
                     wants_image_viewer: false,
                     action: Action::Capture,
                 };
                 let s_close = ShortCut {
-                    name: "Close".to_string(),
+                    name: Action::Close.to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::X),
                     is_active: true,
                     wants_image_viewer: false,
                     action: Action::Close,
                 };
                 let s_modify = ShortCut {
-                    name: "Modify".to_string(),
+                    name: Action::Modify.to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::M),
                     is_active: true,
                     wants_image_viewer: true,
                     action: Action::Modify,
                 };
                 let s_another_screenshot = ShortCut {
-                    name: "Take another screenshot".to_string(),
+                    name: Action::TakeAnotherScreenshot.to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::A),
                     is_active: true,
                     wants_image_viewer: true,
                     action: Action::TakeAnotherScreenshot,
                 };
                 let s_save = ShortCut {
-                    name: "Save".to_string(),
+                    name: Action::Save.to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::S),
                     is_active: true,
                     wants_image_viewer: true,
@@ -268,6 +268,15 @@ pub mod shortcut {
             } else {
                 None
             }
+        }
+        pub fn delete_shotucut(&mut self, shortcut: &mut ShortCut) {
+            let mut delete_index = 0;
+            for (i, sc) in self.set.iter().enumerate() {
+                if sc.shortcut.eq(&shortcut.shortcut) {
+                    delete_index = i
+                }
+            }
+            self.set.remove(delete_index);
         }
         pub fn listener(&self, ctx: &egui::Context, is_image: bool) -> Option<Action> {
             for sc in self.set.iter() {
