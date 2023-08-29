@@ -8,7 +8,6 @@ use std::borrow::Cow;
 use std::time::Instant;
 use std::{fs, path::Path, time::Duration};
 
-
 mod action;
 mod schermi;
 mod shortcut;
@@ -37,6 +36,7 @@ fn main() -> Result<(), eframe::Error> {
             height: 256,
         }),
         transparent: true,
+        initial_window_pos: Some(egui::Pos2::new(0.0, 0.0)),
         resizable: false,
         ..Default::default()
     };
@@ -373,7 +373,6 @@ impl MyApp {
                                             if result.is_some() {
                                                 self.default_location =
                                                     result.unwrap().to_string_lossy().to_string();
-                                                   
                                             }
                                         }
                                         if set_path_text.changed() {
@@ -471,7 +470,6 @@ impl MyApp {
                 };
                 match result {
                     Some(result) => {
-                        println!("{:?}",result);
                         fs::write(result.clone(), self.buffer.clone().unwrap()).unwrap();
                     }
                     None => {}
@@ -805,6 +803,9 @@ impl eframe::App for MyApp {
                                 } else if cfg!(target_os = "macos") {
                                     mc_adj = frame.info().window_info.monitor_size.unwrap().y
                                         - frame.info().window_info.size.y;
+                                    if mc_adj > 25.0 {
+                                        mc_adj = 25.0;
+                                    }
                                 }
 
                                 self.screen_rect = RectangleCrop {
@@ -1090,6 +1091,9 @@ impl eframe::App for MyApp {
                             } else if cfg!(target_os = "macos") {
                                 mc_adj = frame.info().window_info.monitor_size.unwrap().y
                                     - frame.info().window_info.size.y;
+                                if mc_adj > 25.0 {
+                                    mc_adj = 25.0;
+                                }
                             }
                             self.screen_rect = RectangleCrop {
                                 x_left: (r.left()) * adj,
@@ -1176,6 +1180,9 @@ impl eframe::App for MyApp {
             } else if cfg!(target_os = "macos") {
                 mc_adj = frame.info().window_info.monitor_size.unwrap().y
                     - frame.info().window_info.size.y;
+                if mc_adj > 25.0 {
+                    mc_adj = 25.0;
+                }
             }
             self.screen_rect = RectangleCrop {
                 x_left: (r.left()) * adj,
