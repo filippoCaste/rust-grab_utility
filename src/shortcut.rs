@@ -192,7 +192,7 @@ pub mod shortcut {
                 };
                 let s_capture = ShortCut {
                     name: Action::Capture.to_string(),
-                    shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::C),
+                    shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::Space),
                     is_active: true,
                     wants_image_viewer: false,
                     action: Action::Capture,
@@ -225,6 +225,20 @@ pub mod shortcut {
                     wants_image_viewer: true,
                     action: Action::Save,
                 };
+                let s_copy = ShortCut {
+                    name: Action::Copy.to_string(),
+                    shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::C),
+                    is_active: true,
+                    wants_image_viewer: true,
+                    action: Action::Copy,
+                };
+                let s_undo = ShortCut {
+                    name: Action::Undo.to_string(),
+                    shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::Z),
+                    is_active: true,
+                    wants_image_viewer: true,
+                    action: Action::Undo,
+                };
                 output.push(s_save);
                 output.push(s_set_entire_screen);
                 output.push(s_set_selection);
@@ -235,6 +249,8 @@ pub mod shortcut {
                 output.push(s_close);
                 output.push(s_modify);
                 output.push(s_another_screenshot);
+                output.push(s_copy);
+                output.push(s_undo);
             }
 
             Self {
@@ -280,9 +296,17 @@ pub mod shortcut {
         }
         pub fn listener(&self, ctx: &egui::Context, is_image: bool) -> Option<Action> {
             for sc in self.set.iter() {
-                if sc.wants_image_viewer == is_image && sc.is_active {
-                    if let Some(opt_action) = sc.listener_shortcut(ctx) {
-                        return Some(opt_action);
+                if sc.action != Action::Options {
+                    if sc.wants_image_viewer == is_image && sc.is_active {
+                        if let Some(opt_action) = sc.listener_shortcut(ctx) {
+                            return Some(opt_action);
+                        }
+                    }
+                } else {
+                    if sc.is_active {
+                        if let Some(opt_action) = sc.listener_shortcut(ctx) {
+                            return Some(opt_action);
+                        }
                     }
                 }
             }

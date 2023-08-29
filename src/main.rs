@@ -155,12 +155,7 @@ impl MyApp {
                 self.mode = true;
             }
             Action::SettingTimer => {
-                if self.timer.get_seconds() > 0 {
-                    self.timer.start_timer();
-                } else {
-                    frame.set_visible(false);
-                    self.window_hidden = true;
-                }
+                self.timer.open_timer_form();
             }
             Action::StartTimer => {
                 let now = Instant::now();
@@ -448,6 +443,55 @@ impl MyApp {
                     None => {}
                 };
             }
+            Action::Copy=>{
+                let mut ctx_clip = Clipboard::new().unwrap();
+                let image =
+                    load_image_from_memory(&self.buffer.clone().unwrap()).unwrap();
+                let bytes = image.as_raw();
+
+                let img_data = ImageData {
+                    width: image.width() as usize,
+                    height: image.height() as usize,
+                    bytes: Cow::from(bytes.as_ref()),
+                };
+                ctx_clip.set_image(img_data).unwrap();
+            }
+            Action::Undo=>{
+                if let Some(last) = self.last_modify.pop() {
+                    match last {
+                        SelectionAnnotation::NotSelected => {}
+                        SelectionAnnotation::Pen => {
+                            self.annotation_element
+                                .pen
+                                .remove(self.annotation_element.pen.len() - 2);
+                        }
+                        SelectionAnnotation::Line => {
+                            self.annotation_element
+                                .line
+                                .remove(self.annotation_element.line.len() - 2);
+                        }
+                        SelectionAnnotation::Arrow => {
+                            self.annotation_element
+                                .arrow
+                                .remove(self.annotation_element.arrow.len() - 2);
+                        }
+                        SelectionAnnotation::Rect => {
+                            self.annotation_element
+                                .rect
+                                .remove(self.annotation_element.rect.len() - 2);
+                        }
+                        SelectionAnnotation::Circle => {
+                            self.annotation_element
+                                .circle
+                                .remove(self.annotation_element.circle.len() - 2);
+                        }
+                        SelectionAnnotation::Text => {
+                            self.annotation_element.text.pop();
+                        }
+                        SelectionAnnotation::Crop => {}
+                    }
+                }
+            }
         }
     }
 }
@@ -556,7 +600,7 @@ impl eframe::App for MyApp {
                                 .on_hover_text("Take a screenshot with timer")
                                 .clicked()
                             {
-                                self.timer.open_timer_form();
+                                self.run_action(Action::SettingTimer, ctx, frame);
                             }
 
                             if self.timer.is_timer_form_open() {
@@ -569,7 +613,12 @@ impl eframe::App for MyApp {
                                          Sarà poi il blocco 'if self.timer.is_timer_running { }' ad attivare
                                          effettivamente il timer decrementando i secondi.
                                      */
-                                    self.run_action(Action::SettingTimer, ctx, frame);
+                                    if self.timer.get_seconds() > 0 {
+                                        self.timer.start_timer();
+                                    } else {
+                                        frame.set_visible(false);
+                                        self.window_hidden = true;
+                                    }
                                 }
 
                                 if ui.button("Cancel").clicked() {
@@ -615,17 +664,7 @@ impl eframe::App for MyApp {
                                 self.run_action(Action::Options, ctx, frame)
                             }
                             if ui.button("  📋  ").on_hover_text("Copy").clicked() {
-                                let mut ctx_clip = Clipboard::new().unwrap();
-                                let image =
-                                    load_image_from_memory(&self.buffer.clone().unwrap()).unwrap();
-                                let bytes = image.as_raw();
-
-                                let img_data = ImageData {
-                                    width: image.width() as usize,
-                                    height: image.height() as usize,
-                                    bytes: Cow::from(bytes.as_ref()),
-                                };
-                                ctx_clip.set_image(img_data).unwrap();
+                             self.run_action(Action::Copy, ctx, frame);
                             }
                             if ui.button("  Take another Screenshot  ").clicked() {
                                 self.run_action(Action::TakeAnotherScreenshot, ctx, frame)
@@ -697,40 +736,7 @@ impl eframe::App for MyApp {
                             egui::stroke_ui(ui, &mut self.annotation_element.stroke, "Stroke");
                             ui.label("|");
                             if ui.button("  ⟲  ").clicked() {
-                                if let Some(last) = self.last_modify.pop() {
-                                    match last {
-                                        SelectionAnnotation::NotSelected => {}
-                                        SelectionAnnotation::Pen => {
-                                            self.annotation_element
-                                                .pen
-                                                .remove(self.annotation_element.pen.len() - 2);
-                                        }
-                                        SelectionAnnotation::Line => {
-                                            self.annotation_element
-                                                .line
-                                                .remove(self.annotation_element.line.len() - 2);
-                                        }
-                                        SelectionAnnotation::Arrow => {
-                                            self.annotation_element
-                                                .arrow
-                                                .remove(self.annotation_element.arrow.len() - 2);
-                                        }
-                                        SelectionAnnotation::Rect => {
-                                            self.annotation_element
-                                                .rect
-                                                .remove(self.annotation_element.rect.len() - 2);
-                                        }
-                                        SelectionAnnotation::Circle => {
-                                            self.annotation_element
-                                                .circle
-                                                .remove(self.annotation_element.circle.len() - 2);
-                                        }
-                                        SelectionAnnotation::Text => {
-                                            self.annotation_element.text.pop();
-                                        }
-                                        SelectionAnnotation::Crop => {}
-                                    }
-                                }
+                              self.run_action(Action::Undo, ctx, frame);
                             }
                             if ui.button("  Cancel  ").clicked() {
                                 self.annotation_element.pen.clear();

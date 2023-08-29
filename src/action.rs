@@ -1,20 +1,22 @@
-#[derive(Clone, Copy,PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Action {
-    SetEntireScreen,       //ctrl+F
-    SetSelection,          //ctrl+ArrowDown
-    SettingTimer,          //ctrl+T
-    StartTimer,            //ctrl+T+S
-    CancelTimer,           //ctrl+T+X
+    SetEntireScreen, //ctrl+F
+    SetSelection,    //ctrl+ArrowDown
+    SettingTimer,    //ctrl+T
+    StartTimer,
+    CancelTimer,           //ctrl+alt+T
     Options,               //ctrl+O
-    Capture,               //ctrl+C
+    Capture,               //ctrl+space
     Close,                 //ctrl+X
     Modify,                //ctrl+M
     TakeAnotherScreenshot, //ctrl+A
     Save,                  //ctrl+S
+    Copy,                  //Ctrl+C
+    Undo,                  //Ctrl+Z
 }
 
-impl Action{
-   pub fn to_string(self)->String{
+impl Action {
+    pub fn to_string(self) -> String {
         match self {
             Action::SetEntireScreen => String::from("Set entire screen"),
             Action::SetSelection => String::from("Set selection"),
@@ -27,9 +29,11 @@ impl Action{
             Action::Modify => String::from("Modify"),
             Action::TakeAnotherScreenshot => String::from("Take another screenshot"),
             Action::Save => String::from("Save"),
+            Action::Copy => String::from("Copy"),
+            Action::Undo => String::from("Undo modify"),
         }
     }
-    pub fn wants_image_viewer(self)->bool{
+    pub fn wants_image_viewer(self) -> bool {
         match self {
             Action::SetEntireScreen => false,
             Action::SetSelection => false,
@@ -42,6 +46,8 @@ impl Action{
             Action::Modify => true,
             Action::TakeAnotherScreenshot => true,
             Action::Save => true,
+            Action::Copy => true,
+            Action::Undo => true,
         }
     }
 }
@@ -64,6 +70,8 @@ impl AllActionArr {
                 Action::Modify,
                 Action::TakeAnotherScreenshot,
                 Action::Save,
+                Action::Copy,
+                Action::Undo,
             ],
         }
     }
