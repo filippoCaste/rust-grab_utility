@@ -8,6 +8,7 @@ use std::borrow::Cow;
 use std::time::Instant;
 use std::{fs, path::Path, time::Duration};
 
+
 mod action;
 mod schermi;
 mod shortcut;
@@ -340,7 +341,12 @@ impl MyApp {
                                         .show(ui, |ui| {
                                             for shortcut in cloned_vec.iter_mut() {
                                                 ui.horizontal(|ui| {
-                                                    ui.checkbox(&mut shortcut.is_active, "");
+                                                    if ui
+                                                        .checkbox(&mut shortcut.is_active, "")
+                                                        .changed()
+                                                    {
+                                                        self.shortcut_set.change_active(shortcut);
+                                                    };
                                                     ui.label(shortcut.to_string(ctx));
                                                 });
                                                 if ui.button("  🗑  ").clicked() {
@@ -367,6 +373,7 @@ impl MyApp {
                                             if result.is_some() {
                                                 self.default_location =
                                                     result.unwrap().to_string_lossy().to_string();
+                                                   
                                             }
                                         }
                                         if set_path_text.changed() {
@@ -412,6 +419,15 @@ impl MyApp {
                 self.annotation = true;
             }
             Action::TakeAnotherScreenshot => {
+                self.annotation_element.pen.clear();
+                self.annotation_element.rect.clear();
+                self.annotation_element.text.clear();
+                self.annotation_element.arrow.clear();
+                self.annotation_element.line.clear();
+                self.annotation_element.circle.clear();
+                self.last_modify.clear();
+                self.selection_annotation = SelectionAnnotation::NotSelected;
+                self.annotation = false;
                 self.image_viewer = false;
                 self.mode_radio = SelectionMode::Screen;
                 self.show_options = false;
@@ -455,6 +471,7 @@ impl MyApp {
                 };
                 match result {
                     Some(result) => {
+                        println!("{:?}",result);
                         fs::write(result.clone(), self.buffer.clone().unwrap()).unwrap();
                     }
                     None => {}

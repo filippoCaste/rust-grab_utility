@@ -132,6 +132,10 @@ pub mod shortcut {
                 None
             }
         }
+        fn change_active(&mut self){
+            let active= self.is_active;
+            self.is_active= !active;
+        }
 
         fn shortcut_builder(modifiers: Modifiers, key: Key, action: Action) -> Self {
             Self {
@@ -259,6 +263,9 @@ pub mod shortcut {
             }
         }
 
+
+       
+
         pub fn insert_new_shortcut(&mut self, new_shortcut: &mut NewShortcut) -> Option<ShortCut> {
             if let Some(_) = new_shortcut.action {
                 if let Some(_) = new_shortcut.key {
@@ -296,14 +303,14 @@ pub mod shortcut {
         }
         pub fn listener(&self, ctx: &egui::Context, is_image: bool) -> Option<Action> {
             for sc in self.set.iter() {
-                if sc.action != Action::Options {
-                    if sc.wants_image_viewer == is_image && sc.is_active {
+                if sc.action == Action::Options || sc.action ==Action::Close {        
+                    if sc.is_active {
                         if let Some(opt_action) = sc.listener_shortcut(ctx) {
                             return Some(opt_action);
                         }
                     }
                 } else {
-                    if sc.is_active {
+                    if sc.wants_image_viewer == is_image && sc.is_active {
                         if let Some(opt_action) = sc.listener_shortcut(ctx) {
                             return Some(opt_action);
                         }
@@ -311,6 +318,17 @@ pub mod shortcut {
                 }
             }
             None
+        }
+
+        pub fn change_active(&mut self, shortcut: &mut ShortCut){
+
+            for sc in self.set.iter_mut(){
+
+                if sc.shortcut.eq(&shortcut.shortcut){
+
+                    sc.change_active();
+                }
+            }
         }
 
         pub fn to_vec_mut(&mut self) -> Vec<&mut ShortCut> {
