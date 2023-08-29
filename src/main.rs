@@ -89,7 +89,6 @@ enum Options {
     Shortcut,
     Screen,
     Allocation,
-    NewShortcut,
 }
 
 struct AnnotationElement {
@@ -197,14 +196,17 @@ impl MyApp {
                             ..Default::default()
                         })
                         .movable(true)
+                        .resizable(false)
                         .open(&mut self.show_options)
                         .show(ctx, |ui| {
                             ui.vertical_centered(|ui| {
+                                ui.add_space(5.0);
                                 ui.horizontal(|ui| {
+                                    ui.add_space(90.0);
                                     ui.selectable_value(
                                         &mut self.option,
                                         Options::Shortcut,
-                                        "  Shortcut  ",
+                                        "  Shortcuts  ",
                                     );
                                     ui.label("|");
                                     ui.selectable_value(
@@ -218,17 +220,105 @@ impl MyApp {
                                         Options::Screen,
                                         "  Change screen  ",
                                     );
-                                    ui.label("|");
-                                    ui.selectable_value(
-                                        &mut self.option,
-                                        Options::NewShortcut,
-                                        "  New shortcut  ",
-                                    );
                                 });
+                                ui.add_space(5.0);
                             });
                             ui.separator();
+
                             match self.option {
                                 Options::Shortcut => {
+                                    ui.add_space(10.0);
+                                    ui.heading("Add new shortcut");
+                                    ui.add_space(10.0);
+                                    ui.horizontal(|ui| {
+                                        ui.checkbox(&mut self.new_shortcut.modifier.alt, "");
+                                        let mut text = String::new();
+                                        if cfg!(target_os = "macos") {
+                                            text = "Option".to_string();
+                                        } else if cfg!(target_os = "windows") {
+                                            text = "Alt".to_string();
+                                        }
+                                        ui.label(text);
+
+                                        ui.checkbox(&mut self.new_shortcut.modifier.shift, "");
+                                        ui.label("Shift");
+
+                                        ui.checkbox(&mut self.new_shortcut.modifier.command, "");
+                                        let mut text = String::new();
+                                        if cfg!(target_os = "macos") {
+                                            text = "Cmd".to_string();
+                                        } else if cfg!(target_os = "windows") {
+                                            text = "Ctrl".to_string();
+                                        }
+                                        ui.label(text);
+
+                                        egui::ComboBox::from_id_source("All keys")
+                                            .selected_text(if self.new_shortcut.is_default {
+                                                "Select key".to_owned()
+                                            } else {
+                                                match self.new_shortcut.key {
+                                                    Some(k) => k.name().to_owned(),
+                                                    None => "Select key".to_owned(),
+                                                }
+                                            })
+                                            .show_ui(ui, |ui| {
+                                                for k in AllKeyArr::new().all_key.iter() {
+                                                    let txt = format!("{}", k.name());
+                                                    ui.selectable_value(
+                                                        &mut self.new_shortcut.key,
+                                                        Some(*k),
+                                                        txt,
+                                                    );
+                                                }
+                                            });
+
+                                        egui::ComboBox::from_id_source("All actions")
+                                            .selected_text(if self.new_shortcut.is_default {
+                                                "Select action".to_owned()
+                                            } else {
+                                                match self.new_shortcut.action {
+                                                    Some(a) => a.to_string(),
+                                                    None => "Select action".to_owned(),
+                                                }
+                                            })
+                                            .show_ui(ui, |ui| {
+                                                for a in AllActionArr::new().all_action.iter() {
+                                                    let txt = format!("{}", a.to_string());
+                                                    ui.selectable_value(
+                                                        &mut self.new_shortcut.action,
+                                                        Some(*a),
+                                                        txt,
+                                                    );
+                                                }
+                                            });
+
+                                        if ui
+                                            .add(
+                                                egui::Button::new("  +  ")
+                                                    .rounding(egui::Rounding::same(50.0)),
+                                            )
+                                            .on_hover_text("Add new shortcut")
+                                            .clicked()
+                                        {
+                                            self.shortcut_set
+                                                .insert_new_shortcut(&mut self.new_shortcut);
+                                        }
+
+                                        if let Some(_) = self.new_shortcut.key {
+                                            self.new_shortcut.is_default = false;
+                                        }
+                                        if let Some(_) = self.new_shortcut.action {
+                                            self.new_shortcut.is_default = false;
+                                        }
+                                        if !self.new_shortcut.modifier.is_none() {
+                                            self.new_shortcut.is_default = false;
+                                        }
+                                    });
+
+                                    ui.add_space(10.0);
+                                    ui.heading("Shortcuts");
+                                    ui.add_space(10.0);
+
                                     let mut cloned_vec: Vec<_> = self
                                         .shortcut_set
                                         .to_vec_mut()
@@ -236,17 +326,27 @@ impl MyApp {
                                         .map(|item| (*item).clone())
                                         .collect();
 
-                                    for shortcut in cloned_vec.iter_mut() {
-                                        ui.horizontal(|ui| {
-                                            ui.checkbox(&mut shortcut.is_active, "");
-                                            ui.label(shortcut.to_string(ctx));
-                                            if ui.button("delete shortcut").clicked() {
-                                                self.shortcut_set.delete_shotucut(shortcut);
+                                    egui::Grid::new("my_grid")
+                                        .num_columns(2)
+                                        .spacing([170.0, 4.0])
+                                        .striped(true)
+                                        .show(ui, |ui| {
+                                            for shortcut in cloned_vec.iter_mut() {
+                                                ui.horizontal(|ui| {
+                                                    ui.checkbox(&mut shortcut.is_active, "");
+                                                    ui.label(shortcut.to_string(ctx));
+                                                });
+                                                if ui.button("  🗑  ").clicked() {
+                                                    self.shortcut_set.delete_shotucut(shortcut);
+                                                }
+                                                ui.end_row();
                                             }
                                         });
-                                    }
                                 }
                                 Options::Allocation => {
+                                    ui.add_space(10.0);
+                                    ui.heading("Location");
+                                    ui.add_space(10.0);
                                     ui.label(
                                         RichText::new("Path to which save the screenshots: ")
                                             .color(Color32::BLACK),
@@ -270,6 +370,9 @@ impl MyApp {
                                     });
                                 }
                                 Options::Screen => {
+                                    ui.add_space(10.0);
+                                    ui.heading("Change Screen");
+                                    ui.add_space(10.0);
                                     egui::ComboBox::from_id_source("Schermi")
                                         .selected_text("  Change screen  ")
                                         .show_ui(ui, |ui| {
@@ -282,90 +385,6 @@ impl MyApp {
                                                 );
                                             }
                                         });
-                                }
-                                Options::NewShortcut => {
-                                    ui.horizontal(|ui| {
-                                        ui.vertical(|ui| {
-                                            ui.checkbox(&mut self.new_shortcut.modifier.alt, "");
-                                            ui.label("alt");
-
-                                            /*  ui.checkbox(&mut self.new_shortcut.modifier.ctrl, "");
-                                            ui.label("ctrl"); */
-
-                                            ui.checkbox(&mut self.new_shortcut.modifier.shift, "");
-                                            ui.label("shift");
-
-                                            /*   ui.checkbox(&mut self.new_shortcut.modifier.mac_cmd, "");
-                                            ui.label("mac_cmd"); */
-
-                                            ui.checkbox(
-                                                &mut self.new_shortcut.modifier.command,
-                                                "",
-                                            );
-                                            let mut text = String::new();
-                                            if cfg!(target_os = "macos") {
-                                                text = "Cmd".to_string();
-                                            } else {
-                                                text = "Ctrl".to_string();
-                                            }
-                                            ui.label(text);
-                                        });
-
-                                        egui::ComboBox::from_id_source("All keys")
-                                            .selected_text(if self.new_shortcut.is_default {
-                                                "Tutte le chiavi".to_owned()
-                                            } else {
-                                                match self.new_shortcut.key {
-                                                    Some(k) => k.name().to_owned(),
-                                                    None => "Tutte le chiavi".to_owned(),
-                                                }
-                                            })
-                                            .show_ui(ui, |ui| {
-                                                for k in AllKeyArr::new().all_key.iter() {
-                                                    let txt = format!("Key: {}", k.name());
-                                                    ui.selectable_value(
-                                                        &mut self.new_shortcut.key,
-                                                        Some(*k),
-                                                        txt,
-                                                    );
-                                                }
-                                            });
-
-                                        egui::ComboBox::from_id_source("All actions")
-                                            .selected_text(if self.new_shortcut.is_default {
-                                                "Tutte le azioni".to_owned()
-                                            } else {
-                                                match self.new_shortcut.action {
-                                                    Some(a) => a.to_string(),
-                                                    None => "Tutte le azioni".to_owned(),
-                                                }
-                                            })
-                                            .show_ui(ui, |ui| {
-                                                for a in AllActionArr::new().all_action.iter() {
-                                                    let txt = format!("Action: {}", a.to_string());
-                                                    ui.selectable_value(
-                                                        &mut self.new_shortcut.action,
-                                                        Some(*a),
-                                                        txt,
-                                                    );
-                                                }
-                                            });
-
-                                        if ui.button("add new shortcut").clicked() {
-                                            self.shortcut_set
-                                                .insert_new_shortcut(&mut self.new_shortcut);
-                                        }
-
-                                        if let Some(_) = self.new_shortcut.key {
-                                            self.new_shortcut.is_default = false;
-                                        }
-                                        if let Some(_) = self.new_shortcut.action {
-                                            self.new_shortcut.is_default = false;
-                                        }
-                                        if !self.new_shortcut.modifier.is_none() {
-                                            self.new_shortcut.is_default = false;
-                                        }
-                                    });
                                 }
                             }
                         });
@@ -384,6 +403,7 @@ impl MyApp {
             Action::TakeAnotherScreenshot => {
                 self.image_viewer = false;
                 self.mode_radio = SelectionMode::Screen;
+                self.show_options = false;
                 self.mode = false;
                 frame.set_visible(false);
                 self.mac_bug = true;
@@ -467,6 +487,7 @@ impl eframe::App for MyApp {
             self.image_viewer = true;
             self.mode = false;
             self.annotation = false;
+            self.show_options = false;
             self.annotation_element.pen.clear();
             self.annotation_element.rect.clear();
             self.annotation_element.text.clear();
