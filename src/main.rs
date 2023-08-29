@@ -6,7 +6,7 @@ use image;
 use native_dialog::FileDialog;
 use std::borrow::Cow;
 use std::time::Instant;
-use std::{fs, time::Duration};
+use std::{fs, path::Path, time::Duration};
 
 
 mod action;
@@ -68,8 +68,9 @@ struct MyApp {
     last_modify: Vec<SelectionAnnotation>,
     option: Options,
     new_shortcut: NewShortcut,
+    get_real_monitor: u8,
 }
-
+#[derive(Debug)]
 struct RectangleCrop {
     x_left: f32,
     y_left: f32,
@@ -132,7 +133,7 @@ impl Default for MyApp {
             timer: Timer::new(),
             show_options: false,
             shortcut_set: ShortcutSet::default(),
-            default_location: "~".to_string(),
+            default_location: "./screenshots".to_string(),
             schermi: Schermi::new(),
             mac_bug: false,
             selection_annotation: SelectionAnnotation::NotSelected,
@@ -151,6 +152,7 @@ impl Default for MyApp {
             },
             option: Options::Shortcut,
             new_shortcut: NewShortcut::default(),
+            get_real_monitor: 0,
         }
     }
 }
@@ -376,7 +378,7 @@ impl MyApp {
                                         }
                                         if set_path_text.changed() {
                                             if self.default_location == "" {
-                                                self.default_location = "~".to_string();
+                                                self.default_location = "./screenshots".to_string();
                                             }
                                         }
                                     });
@@ -386,7 +388,7 @@ impl MyApp {
                                     ui.heading("Change Screen");
                                     ui.add_space(10.0);
                                     egui::ComboBox::from_id_source("Schermi")
-                                        .selected_text("  Change screen  ")
+                                        .selected_text(format!("Screen {}", self.schermi.screen_no))
                                         .show_ui(ui, |ui| {
                                             for i in 0..self.schermi.no_screens() {
                                                 let txt = format!("Screen {}", i);
@@ -397,6 +399,10 @@ impl MyApp {
                                                 );
                                             }
                                         });
+                                    if self.schermi.screen_no != self.schermi.default_screen_no {
+                                        self.mode_radio = SelectionMode::Screen;
+                                        self.mode = false;
+                                    }
                                 }
                             }
                         });
@@ -441,8 +447,12 @@ impl MyApp {
                 })
                 .join()
                 .expect("Fail to compute date");
+                let mut path = Path::new(&self.default_location);
+                if !path.exists() {
+                    path = Path::new("./screenshots");
+                }
                 let result = match FileDialog::new()
-                    .set_location(&self.default_location)
+                    .set_location(path)
                     .set_filename(&default_name[..27])
                     .add_filter("PNG Image", &["png"])
                     .add_filter("JPEG Image", &["jpg", "jpeg"])
@@ -450,18 +460,14 @@ impl MyApp {
                     .show_save_single_file()
                 {
                     Ok(res) => res,
-                    Err(_) => {
-                        
-                        // uncorrect path set by user
-                        FileDialog::new()
-                            .set_location("~")
-                            .set_filename(&default_name[..27])
-                            .add_filter("PNG Image", &["png"])
-                            .add_filter("JPEG Image", &["jpg", "jpeg"])
-                            .add_filter("GIF Image", &["gif"])
-                            .show_save_single_file()
-                            .unwrap()
-                    }
+                    Err(_) => FileDialog::new()
+                        .set_location("./screenshots")
+                        .set_filename(&default_name[..27])
+                        .add_filter("PNG Image", &["png"])
+                        .add_filter("JPEG Image", &["jpg", "jpeg"])
+                        .add_filter("GIF Image", &["gif"])
+                        .show_save_single_file()
+                        .unwrap(),
                 };
                 match result {
                     Some(result) => {
@@ -524,7 +530,6 @@ impl MyApp {
 }
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-       
         ctx.set_visuals(egui::Visuals::light());
         if self.mac_bug {
             std::thread::sleep(Duration::from_millis(100));
@@ -533,8 +538,11 @@ impl eframe::App for MyApp {
         }
         if self.window_hidden {
             std::thread::sleep(Duration::from_millis(300));
-            let screen = self.schermi.get_screen();
+            let mut screen = self.schermi.get_screen();
             let image;
+            if self.annotation {
+                screen = self.schermi.get_default_screen();
+            }
             if self.mode || self.annotation {
                 image = screen
                     .capture_area(
@@ -611,17 +619,23 @@ impl eframe::App for MyApp {
                             {
                                 self.run_action(Action::SetEntireScreen, ctx, frame)
                             };
-                            if ui
-                                .selectable_value(
-                                    &mut self.mode_radio,
-                                    SelectionMode::Selection,
-                                    "  ⛶  ",
-                                )
-                                .on_hover_text("Capture the selection")
-                                .clicked()
-                            {
-                                self.run_action(Action::SetSelection, ctx, frame)
-                            };
+                            ui.add_enabled_ui(
+                                self.schermi.screen_no == self.schermi.default_screen_no,
+                                |ui| {
+                                    if ui
+                                        .selectable_value(
+                                            &mut self.mode_radio,
+                                            SelectionMode::Selection,
+                                            "  ⛶  ",
+                                        )
+                                        .on_hover_text("Capture the selection")
+                                        .clicked()
+                                    {
+                                        self.run_action(Action::SetSelection, ctx, frame)
+                                    };
+                                },
+                            );
+
                             if ui
                                 .button(" 🕓 ")
                                 .on_hover_text("Take a screenshot with timer")
@@ -789,7 +803,8 @@ impl eframe::App for MyApp {
                                 if cfg!(target_os = "windows") {
                                     adj = frame.info().native_pixels_per_point.unwrap();
                                 } else if cfg!(target_os = "macos") {
-                                    mc_adj = frame.info().window_info.position.unwrap()[1]
+                                    mc_adj = frame.info().window_info.monitor_size.unwrap().y
+                                        - frame.info().window_info.size.y;
                                 }
 
                                 self.screen_rect = RectangleCrop {
@@ -1073,7 +1088,8 @@ impl eframe::App for MyApp {
                             if cfg!(target_os = "windows") {
                                 adj = frame.info().native_pixels_per_point.unwrap();
                             } else if cfg!(target_os = "macos") {
-                                mc_adj = frame.info().window_info.position.unwrap()[1]
+                                mc_adj = frame.info().window_info.monitor_size.unwrap().y
+                                    - frame.info().window_info.size.y;
                             }
                             self.screen_rect = RectangleCrop {
                                 x_left: (r.left()) * adj,
@@ -1158,7 +1174,8 @@ impl eframe::App for MyApp {
             if cfg!(target_os = "windows") {
                 adj = frame.info().native_pixels_per_point.unwrap();
             } else if cfg!(target_os = "macos") {
-                mc_adj = frame.info().window_info.position.unwrap()[1]
+                mc_adj = frame.info().window_info.monitor_size.unwrap().y
+                    - frame.info().window_info.size.y;
             }
             self.screen_rect = RectangleCrop {
                 x_left: (r.left()) * adj,
@@ -1166,6 +1183,14 @@ impl eframe::App for MyApp {
                 width: r.width() * adj,
                 height: r.height() * adj,
             };
+        }
+
+        if self.get_real_monitor <= 7 {
+            self.get_real_monitor += 1;
+            ctx.request_repaint();
+        }
+        if self.get_real_monitor == 5 {
+            self.schermi.set_screen_no(frame.info().window_info);
         }
 
         if self.timer.is_timer_running() {
