@@ -435,10 +435,6 @@ impl MyApp {
                 self.get_real_monitor = 6;
             }
             Action::Save => {
-               
-                //println!("{}",self.default_location);
-
-                
                 let default_name = std::thread::spawn(move || {
                     let today = Utc::now()
                         .to_string()
@@ -794,6 +790,20 @@ impl eframe::App for MyApp {
                                 "  Text  ",
                             )
                             .on_hover_text("Text");
+                            if self.selection_annotation == SelectionAnnotation::Text {
+                                egui::TextEdit::multiline(
+                                    &mut self.annotation_element.text2,
+                                )
+                                .hint_text("Hello!")
+                                .desired_rows(1)
+                                .show(ui);
+
+                                if ui.button("  Save text  ").clicked() {
+                                    self.annotation_element.pos_text = true;
+                                    self.last_modify.push(SelectionAnnotation::Text);
+                                };
+                            }
+
                             ui.label("|");
                             ui.selectable_value(
                                 &mut self.selection_annotation,
@@ -1066,19 +1076,6 @@ impl eframe::App for MyApp {
                                                 self.annotation_element.stroke.width * 20.0 + 0.1,
                                             ),
                                         );
-                                        ui.horizontal(|ui| {
-                                            egui::TextEdit::multiline(
-                                                &mut self.annotation_element.text2,
-                                            )
-                                            .hint_text("Hello!")
-                                            .show(ui);
-                                            if ui.button("save").clicked() {
-                                                self.annotation_element.pos_text = true;
-                                                self.last_modify.push(SelectionAnnotation::Text);
-                                                self.selection_annotation =
-                                                    SelectionAnnotation::NotSelected;
-                                            };
-                                        })
                                     });
                                 });
                             if self.annotation_element.pos_text {
@@ -1090,6 +1087,8 @@ impl eframe::App for MyApp {
                                     self.annotation_element.stroke.clone(),
                                 ));
                                 self.annotation_element.text2 = "Edit this text".to_string();
+                                self.selection_annotation =
+                                                    SelectionAnnotation::NotSelected
                             }
                         }
                         SelectionAnnotation::Crop => {
