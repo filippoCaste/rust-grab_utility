@@ -6,7 +6,7 @@ use image;
 use native_dialog::FileDialog;
 use std::borrow::Cow;
 use std::time::Instant;
-use std::{fs, path::PathBuf, time::Duration};
+use std::{fs, time::Duration};
 
 mod action;
 mod schermi;
@@ -133,7 +133,7 @@ impl Default for MyApp {
             timer: Timer::new(),
             show_options: false,
             shortcut_set: ShortcutSet::default(),
-            default_location: "/screenshots".to_string(),
+            default_location: "screenshots".to_string(),
             schermi: Schermi::new(),
             mac_bug: false,
             selection_annotation: SelectionAnnotation::NotSelected,
@@ -377,7 +377,7 @@ impl MyApp {
                                         }
                                         if set_path_text.changed() {
                                             if self.default_location == "" {
-                                                self.default_location = "/screenshots".to_string();
+                                                self.default_location = "screenshots".to_string();
                                             }
                                         }
                                     });
@@ -449,11 +449,8 @@ impl MyApp {
                 let mut dir: std::path::PathBuf = std::env::current_dir().unwrap();
                 dir.push(&self.default_location);
                 if !dir.exists() {
-                    if cfg!(target_os = "windows") {
-                        dir = PathBuf::from("~");
-                    } else if cfg!(target_os = "macos") {
-                        dir = PathBuf::from("./screenshots");
-                    }
+                    dir = std::env::current_dir().unwrap();
+                    dir.push("screenshots");
                 }
                 let result = match FileDialog::new()
                     .set_location(&dir)
