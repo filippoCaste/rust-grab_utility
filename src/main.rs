@@ -68,6 +68,9 @@ struct MyApp {
     option: Options,
     new_shortcut: NewShortcut,
     get_real_monitor: u8,
+    default_name: String,
+    default_name_sel: bool,
+    default_name_num: u32,
 }
 #[derive(Debug)]
 struct RectangleCrop {
@@ -152,6 +155,20 @@ impl Default for MyApp {
             option: Options::Shortcut,
             new_shortcut: NewShortcut::default(),
             get_real_monitor: 0,
+            default_name: std::thread::spawn(move || {
+                let today = Utc::now()
+                    .to_string()
+                    .replace("-", "")
+                    .replace(":", "_")
+                    .replace(" ", "")
+                    .to_string();
+                format!("screenshot_{}", today)
+            })
+            .join()
+            .expect("Fail to compute date")[..27]
+                .to_string(),
+            default_name_sel: true,
+            default_name_num: 0,
         }
     }
 }
@@ -209,7 +226,7 @@ impl MyApp {
                             ui.vertical_centered(|ui| {
                                 ui.add_space(5.0);
                                 ui.horizontal(|ui| {
-                                    ui.add_space(90.0);
+                                    ui.add_space(60.0);
                                     ui.selectable_value(
                                         &mut self.option,
                                         Options::Shortcut,
@@ -219,7 +236,7 @@ impl MyApp {
                                     ui.selectable_value(
                                         &mut self.option,
                                         Options::Allocation,
-                                        "  Location  ",
+                                        "  Location and name  ",
                                     );
                                     ui.label("|");
                                     ui.selectable_value(
@@ -357,11 +374,10 @@ impl MyApp {
                                 }
                                 Options::Allocation => {
                                     ui.add_space(10.0);
-                                    ui.heading("Location");
+                                    ui.heading("Location and name");
                                     ui.add_space(10.0);
                                     ui.label(
-                                        RichText::new("Path to which save the screenshots: ")
-                                            .color(Color32::BLACK),
+                                        RichText::new("Screenshots path: ").color(Color32::BLACK),
                                     );
                                     ui.horizontal(|ui| {
                                         let set_path_text =
@@ -378,6 +394,34 @@ impl MyApp {
                                             if self.default_location == "" {
                                                 self.default_location = "screenshots".to_string();
                                             }
+                                        }
+                                    });
+                                    ui.add_space(10.0);
+                                    ui.horizontal(|ui| {
+                                        ui.label(
+                                            RichText::new("Screenshots name: ")
+                                                .color(Color32::BLACK),
+                                        );
+                                        if ui.button("Set default name").clicked() {
+                                            self.default_name_sel = true;
+                                            self.default_name = std::thread::spawn(move || {
+                                                let today = Utc::now()
+                                                    .to_string()
+                                                    .replace("-", "")
+                                                    .replace(":", "_")
+                                                    .replace(" ", "")
+                                                    .to_string();
+                                                format!("screenshot_{}", today)
+                                            })
+                                            .join()
+                                            .expect("Fail to compute date")[..27]
+                                                .to_string()
+                                        }
+                                    });
+                                    ui.horizontal(|ui| {
+                                        ui.text_edit_singleline(&mut self.default_name);
+                                        if ui.button("  Save  ").clicked() {
+                                            self.default_name_sel = false;
                                         }
                                     });
                                 }
@@ -435,7 +479,7 @@ impl MyApp {
                 self.get_real_monitor = 6;
             }
             Action::Save => {
-                let default_name = std::thread::spawn(move || {
+                let mut name = std::thread::spawn(move || {
                     let today = Utc::now()
                         .to_string()
                         .replace("-", "")
@@ -445,7 +489,17 @@ impl MyApp {
                     format!("screenshot_{}", today)
                 })
                 .join()
-                .expect("Fail to compute date");
+                .expect("Fail to compute date")[..27]
+                    .to_string();
+                if !self.default_name_sel {
+                    if self.default_name_num != 0 {
+                        name = format!("{}-{}", self.default_name, self.default_name_num);
+                        self.default_name_num += 1;
+                    } else {
+                        name = self.default_name.clone();
+                        self.default_name_num += 1;
+                    }
+                }
                 let mut dir: std::path::PathBuf = std::env::current_dir().unwrap();
                 dir.push(&self.default_location);
                 if !dir.exists() {
@@ -454,7 +508,7 @@ impl MyApp {
                 }
                 let result = match FileDialog::new()
                     .set_location(&dir)
-                    .set_filename(&default_name[..27])
+                    .set_filename(&name)
                     .add_filter("PNG Image", &["png"])
                     .add_filter("JPEG Image", &["jpg", "jpeg"])
                     .add_filter("GIF Image", &["gif"])
@@ -463,7 +517,7 @@ impl MyApp {
                     Ok(res) => res,
                     Err(_) => FileDialog::new()
                         .set_location("~")
-                        .set_filename(&default_name[..27])
+                        .set_filename(&name)
                         .add_filter("PNG Image", &["png"])
                         .add_filter("JPEG Image", &["jpg", "jpeg"])
                         .add_filter("GIF Image", &["gif"])
@@ -843,8 +897,8 @@ impl eframe::App for MyApp {
                             }
                             if ui.button("  Save modify  ").clicked() {
                                 let dim_image = resize_image_to_fit_container(
-                                    1000.0,
-                                    600.0,
+                                    frame.info().window_info.size.x / 3.0 * 2.0,
+                                    frame.info().window_info.size.y / 3.0 * 2.0,
                                     self.texture.clone().unwrap().size_vec2()[0],
                                     self.texture.clone().unwrap().size_vec2()[1],
                                 );
@@ -891,6 +945,7 @@ impl eframe::App for MyApp {
                     frame.info().window_info.size[1],
                 ))
             })
+            .resize(|r| r.min_size(egui::vec2(1.0, 1.0)))
             .default_pos(egui::Pos2::new(
                 (frame.info().window_info.size[0] - 320.0) / 2.0,
                 (frame.info().window_info.size[1] - 240.0) / 2.0,
@@ -920,8 +975,8 @@ impl eframe::App for MyApp {
             .open(&mut self.image_viewer)
             .show(ctx, |ui| {
                 let dim_image = resize_image_to_fit_container(
-                    1000.0,
-                    600.0,
+                    frame.info().window_info.size.x / 3.0 * 2.0,
+                    frame.info().window_info.size.y / 3.0 * 2.0,
                     self.texture.clone().unwrap().size_vec2()[0],
                     self.texture.clone().unwrap().size_vec2()[1],
                 );
@@ -1109,6 +1164,7 @@ impl eframe::App for MyApp {
                                 .default_size(egui::vec2(320.0, 240.0))
                                 .resizable(true)
                                 .movable(true)
+                                .resize(|r| r.min_size(egui::vec2(1.0, 1.0)))
                                 .resize(|r| r.max_size(egui::vec2(dim_image.0, dim_image.1)))
                                 .default_pos(egui::Pos2::new(
                                     (frame.info().window_info.size[0] - 320.0) / 2.0,
