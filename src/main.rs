@@ -449,7 +449,9 @@ impl MyApp {
                 .expect("Fail to compute date");
                 let mut path = Path::new(&self.default_location);
                 if cfg!(target_os = "macos") {
-                    path = Path::new("./screenshots");
+                    if ! path.exists() {
+                        path = Path::new("./screenshots");
+                    }
                 }
                 let result = match FileDialog::new()
                     .set_location(path)
@@ -461,7 +463,7 @@ impl MyApp {
                 {
                     Ok(res) => res,
                     Err(_) => FileDialog::new()
-                        .set_location("../screenshots")
+                        .set_location("~")
                         .set_filename(&default_name[..27])
                         .add_filter("PNG Image", &["png"])
                         .add_filter("JPEG Image", &["jpg", "jpeg"])
