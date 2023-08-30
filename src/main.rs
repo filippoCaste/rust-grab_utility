@@ -435,6 +435,10 @@ impl MyApp {
                 self.get_real_monitor = 6;
             }
             Action::Save => {
+               
+                //println!("{}",self.default_location);
+
+                
                 let default_name = std::thread::spawn(move || {
                     let today = Utc::now()
                         .to_string()
