@@ -283,6 +283,10 @@ impl MyApp {
                 self.mac_bug = true;
             }
             Action::Save => {
+               
+                //println!("{}",self.default_location);
+
+                
                 let default_name = std::thread::spawn(move || {
                     let today = Utc::now()
                         .to_string()
@@ -304,9 +308,17 @@ impl MyApp {
                 {
                     Ok(res) => res,
                     Err(_) => {
+                        let mut current_dir_str = std::env::current_dir()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_owned();
+                   
+                    current_dir_str.push_str(&self.default_location);
+                   // self.default_location = current_dir_str;
                         // uncorrect path set by user
                         FileDialog::new()
-                            .set_location("~")
+                            .set_location(&current_dir_str)
                             .set_filename(&default_name[..27])
                             .add_filter("PNG Image", &["png"])
                             .add_filter("JPEG Image", &["jpg", "jpeg"])
