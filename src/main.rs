@@ -117,7 +117,7 @@ impl Default for MyApp {
             timer: Timer::new(),
             show_options: false,
             shortcut_set: ShortcutSet::default(),
-            default_location: "~".to_string(),
+            default_location: "/screenshots".to_string(),
             schermi: Schermi::new(),
             mac_bug: false,
             selection_annotation: SelectionAnnotation::NotSelected,
@@ -283,6 +283,17 @@ impl MyApp {
                 self.mac_bug = true;
             }
             Action::Save => {
+                let mut current_dir_str = std::env::current_dir()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_owned();
+               
+                current_dir_str.push_str(&self.default_location);
+                self.default_location = current_dir_str;
+                println!("{}",self.default_location);
+
+                
                 let default_name = std::thread::spawn(move || {
                     let today = Utc::now()
                         .to_string()
@@ -306,7 +317,7 @@ impl MyApp {
                     Err(_) => {
                         // uncorrect path set by user
                         FileDialog::new()
-                            .set_location("~")
+                            .set_location(&self.default_location)
                             .set_filename(&default_name[..27])
                             .add_filter("PNG Image", &["png"])
                             .add_filter("JPEG Image", &["jpg", "jpeg"])
@@ -628,14 +639,18 @@ impl eframe::App for MyApp {
                                 let mut mc_adj = 0.0;
                                 if cfg!(target_os = "windows") {
                                     adj = frame.info().native_pixels_per_point.unwrap();
-                                }
-                                else if cfg!(target_os = "macos") {
+                                } else if cfg!(target_os = "macos") {
                                     mc_adj = frame.info().window_info.position.unwrap()[1]
                                 }
-        
+
                                 self.screen_rect = RectangleCrop {
-                                    x_left: (((frame.info().window_info.size[0] - dim_image.0)/2.0))*adj ,
-                                    y_left: (((frame.info().window_info.size[1] - dim_image.1)/2.0)+ mc_adj) * adj,
+                                    x_left: ((frame.info().window_info.size[0] - dim_image.0)
+                                        / 2.0)
+                                        * adj,
+                                    y_left: (((frame.info().window_info.size[1] - dim_image.1)
+                                        / 2.0)
+                                        + mc_adj)
+                                        * adj,
                                     width: dim_image.0 * adj,
                                     height: dim_image.1 * adj,
                                 };
@@ -903,22 +918,21 @@ impl eframe::App for MyApp {
                                     ui.allocate_space(ui.available_size());
                                 });
 
-                                let r = pos.unwrap().response.rect;
-                                let mut adj = 1.0;
-                                let mut mc_adj = 0.0;
-                                if cfg!(target_os = "windows") {
-                                    adj = frame.info().native_pixels_per_point.unwrap();
-                                }
-                                else if cfg!(target_os = "macos") {
-                                    mc_adj = frame.info().window_info.position.unwrap()[1]
-                                }
-                                self.screen_rect = RectangleCrop {
-                                    x_left: (r.left()) * adj,
-                                    y_left: (r.top() + mc_adj) * adj,
-                                    width: r.width() * adj,
-                                    height: r.height() * adj,
-                                };
+                            let r = pos.unwrap().response.rect;
+                            let mut adj = 1.0;
+                            let mut mc_adj = 0.0;
+                            if cfg!(target_os = "windows") {
+                                adj = frame.info().native_pixels_per_point.unwrap();
+                            } else if cfg!(target_os = "macos") {
+                                mc_adj = frame.info().window_info.position.unwrap()[1]
                             }
+                            self.screen_rect = RectangleCrop {
+                                x_left: (r.left()) * adj,
+                                y_left: (r.top() + mc_adj) * adj,
+                                width: r.width() * adj,
+                                height: r.height() * adj,
+                            };
+                        }
                     }
                 }
                 let pen = self
@@ -988,23 +1002,22 @@ impl eframe::App for MyApp {
                 painter.extend(circle);
             });
 
-            if self.mode == true {
-                let r = w.unwrap().response.rect;
-                let mut adj = 1.0;
-                let mut mc_adj = 0.0;
-                if cfg!(target_os = "windows") {
-                    adj = frame.info().native_pixels_per_point.unwrap();
-                }
-                else if cfg!(target_os = "macos") {
-                    mc_adj = frame.info().window_info.position.unwrap()[1]
-                }
-                self.screen_rect = RectangleCrop {
-                    x_left: (r.left()) * adj,
-                    y_left: (r.top() + mc_adj) * adj,
-                    width: r.width() * adj,
-                    height: r.height() * adj,
-                };
+        if self.mode == true {
+            let r = w.unwrap().response.rect;
+            let mut adj = 1.0;
+            let mut mc_adj = 0.0;
+            if cfg!(target_os = "windows") {
+                adj = frame.info().native_pixels_per_point.unwrap();
+            } else if cfg!(target_os = "macos") {
+                mc_adj = frame.info().window_info.position.unwrap()[1]
             }
+            self.screen_rect = RectangleCrop {
+                x_left: (r.left()) * adj,
+                y_left: (r.top() + mc_adj) * adj,
+                width: r.width() * adj,
+                height: r.height() * adj,
+            };
+        }
 
         if self.timer.is_timer_running() {
             egui::Window::new("Countdown")
