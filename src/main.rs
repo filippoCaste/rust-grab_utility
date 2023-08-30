@@ -885,6 +885,12 @@ impl eframe::App for MyApp {
             .default_size(egui::vec2(320.0, 240.0))
             .resizable(true)
             .movable(true)
+            .resize(|r| {
+                r.max_size(egui::vec2(
+                    frame.info().window_info.size[0],
+                    frame.info().window_info.size[1],
+                ))
+            })
             .default_pos(egui::Pos2::new(
                 (frame.info().window_info.size[0] - 320.0) / 2.0,
                 (frame.info().window_info.size[1] - 240.0) / 2.0,
@@ -1103,6 +1109,7 @@ impl eframe::App for MyApp {
                                 .default_size(egui::vec2(320.0, 240.0))
                                 .resizable(true)
                                 .movable(true)
+                                .resize(|r| r.max_size(egui::vec2(dim_image.0, dim_image.1)))
                                 .default_pos(egui::Pos2::new(
                                     (frame.info().window_info.size[0] - 320.0) / 2.0,
                                     (frame.info().window_info.size[1] - 240.0) / 2.0,
