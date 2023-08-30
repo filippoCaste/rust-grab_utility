@@ -707,7 +707,7 @@ impl eframe::App for MyApp {
                 rounding: egui::Rounding::same(20.0),
                 ..Default::default()
             })
-            .fixed_size([316.0, 30.0])
+            .fixed_size([500.0, 30.0])
             .resizable(false)
             .show(ctx, |ui| {
                 ui.with_layout(
@@ -791,12 +791,19 @@ impl eframe::App for MyApp {
                             )
                             .on_hover_text("Text");
                             if self.selection_annotation == SelectionAnnotation::Text {
-                                egui::TextEdit::multiline(
-                                    &mut self.annotation_element.text2,
-                                )
-                                .hint_text("Hello!")
-                                .desired_rows(1)
-                                .show(ui);
+                                egui::ScrollArea::vertical().min_scrolled_height(30.0).show(
+                                    ui,
+                                    |ui| {
+                                        ui.add(
+                                            egui::TextEdit::multiline(
+                                                &mut self.annotation_element.text2,
+                                            )
+                                            .hint_text("Hello!")
+                                            .desired_rows(1)
+                                            .desired_width(500.0),
+                                        );
+                                    },
+                                );
 
                                 if ui.button("  Save text  ").clicked() {
                                     self.annotation_element.pos_text = true;
@@ -1087,8 +1094,7 @@ impl eframe::App for MyApp {
                                     self.annotation_element.stroke.clone(),
                                 ));
                                 self.annotation_element.text2 = "Edit this text".to_string();
-                                self.selection_annotation =
-                                                    SelectionAnnotation::NotSelected
+                                self.selection_annotation = SelectionAnnotation::NotSelected
                             }
                         }
                         SelectionAnnotation::Crop => {
