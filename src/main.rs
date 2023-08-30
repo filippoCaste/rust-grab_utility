@@ -21,6 +21,7 @@ use shortcut::shortcut::NewShortcut;
 use shortcut::shortcut::ShortcutSet;
 use timer::timer::Timer;
 
+
 fn main() -> Result<(), eframe::Error> {
     let icon: Vec<u8> = image::open("./icon.png")
         .expect("Error")
@@ -36,7 +37,7 @@ fn main() -> Result<(), eframe::Error> {
             height: 256,
         }),
         transparent: true,
-        initial_window_pos: Some(egui::Pos2::new(0.0, 0.0)),
+        // initial_window_pos: Some(egui::Pos2::new(0.0, 0.0)),
         resizable: false,
         ..Default::default()
     };
@@ -133,7 +134,7 @@ impl Default for MyApp {
             timer: Timer::new(),
             show_options: false,
             shortcut_set: ShortcutSet::default(),
-            default_location: "./screenshots".to_string(),
+            default_location: "~".to_string(),
             schermi: Schermi::new(),
             mac_bug: false,
             selection_annotation: SelectionAnnotation::NotSelected,
@@ -447,7 +448,7 @@ impl MyApp {
                 .join()
                 .expect("Fail to compute date");
                 let mut path = Path::new(&self.default_location);
-                if !path.exists() {
+                if cfg!(target_os = "macos") {
                     path = Path::new("./screenshots");
                 }
                 let result = match FileDialog::new()
@@ -460,7 +461,7 @@ impl MyApp {
                 {
                     Ok(res) => res,
                     Err(_) => FileDialog::new()
-                        .set_location("./screenshots")
+                        .set_location("../screenshots")
                         .set_filename(&default_name[..27])
                         .add_filter("PNG Image", &["png"])
                         .add_filter("JPEG Image", &["jpg", "jpeg"])
