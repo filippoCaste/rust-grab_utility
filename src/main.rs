@@ -36,7 +36,6 @@ fn main() -> Result<(), eframe::Error> {
             height: 256,
         }),
         transparent: true,
-        // initial_window_pos: Some(egui::Pos2::new(0.0, 0.0)),
         resizable: false,
         ..Default::default()
     };
@@ -433,6 +432,7 @@ impl MyApp {
                 self.mode = false;
                 frame.set_visible(false);
                 self.mac_bug = true;
+                self.get_real_monitor = 6;
             }
             Action::Save => {
                 let default_name = std::thread::spawn(move || {
@@ -561,7 +561,6 @@ impl eframe::App for MyApp {
                 load_image_from_memory(&self.buffer.clone().unwrap()).unwrap(),
                 Default::default(),
             ));
-            //fs::write("screen.png", self.buffer.clone().unwrap()).unwrap();
             self.window_hidden = false;
             self.image_viewer = true;
             self.mode = false;
@@ -576,12 +575,17 @@ impl eframe::App for MyApp {
             self.last_modify.clear();
             frame.set_visible(false);
             self.mac_bug = true;
-            //frame.set_visible(true);
         }
-
+        let position_bar_x = frame.info().window_info.size.x / 2.0;
+        let position_bar_y = frame.info().window_info.size.y - 70.0;
         egui::Window::new("Screenshot")
             .title_bar(false)
-            .anchor(egui::Align2::CENTER_BOTTOM, [0.0, -20.0])
+            .movable(!self.image_viewer)
+            .default_rect(egui::Rect::from_center_size(
+                egui::Pos2::new(position_bar_x, position_bar_y),
+                egui::Vec2::new(316.0, 30.0),
+            ))
+            .open(&mut (self.get_real_monitor == 15 && !self.image_viewer))
             .frame(egui::Frame {
                 fill: egui::Color32::GRAY,
                 stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
@@ -589,7 +593,7 @@ impl eframe::App for MyApp {
                 rounding: egui::Rounding::same(20.0),
                 ..Default::default()
             })
-            .fixed_size([400.0, 30.0])
+            .fixed_size([316.0, 30.0])
             .resizable(false)
             .show(ctx, |ui| {
                 ui.with_layout(
@@ -649,11 +653,6 @@ impl eframe::App for MyApp {
                                 ui.add(egui::Slider::new(&mut self.timer.seconds, 0..=60));
 
                                 if ui.button("Start Timer").clicked() {
-                                    /*
-                                    N.B: il bottone ha il solo compito di comunicare l'intenzione di avviare il timer.
-                                         Sarà poi il blocco 'if self.timer.is_timer_running { }' ad attivare
-                                         effettivamente il timer decrementando i secondi.
-                                     */
                                     if self.timer.get_seconds() > 0 {
                                         self.timer.start_timer();
                                     } else {
@@ -668,8 +667,6 @@ impl eframe::App for MyApp {
                             }
 
                             if self.timer.is_timer_running() {
-                                //  ui.label(format!("Screenshot tra: {}", self.timer.seconds - 1));
-
                                 self.run_action(Action::StartTimer, ctx, frame);
 
                                 if ui.button("Cancel").clicked() {
@@ -694,7 +691,40 @@ impl eframe::App for MyApp {
                             {
                                 self.run_action(Action::Close, ctx, frame)
                             }
-                        } else if self.image_viewer && !self.annotation {
+                        }
+                    },
+                );
+            });
+
+        egui::Window::new("Screenshot2")
+            .title_bar(false)
+            .anchor(egui::Align2::CENTER_BOTTOM, [0.0, -20.0])
+            .open(&mut self.image_viewer.clone())
+            .frame(egui::Frame {
+                fill: egui::Color32::GRAY,
+                stroke: egui::Stroke::new(0.5, egui::Color32::BLACK),
+                inner_margin: egui::style::Margin::same(15.0),
+                rounding: egui::Rounding::same(20.0),
+                ..Default::default()
+            })
+            .fixed_size([316.0, 30.0])
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.with_layout(
+                    egui::Layout {
+                        main_dir: egui::Direction::LeftToRight,
+                        main_wrap: false,
+                        main_align: egui::Align::Center,
+                        main_justify: false,
+                        cross_align: egui::Align::Center,
+                        cross_justify: true,
+                    },
+                    |ui| {
+                        match self.shortcut_set.listener(ctx, self.image_viewer) {
+                            Some(action) => self.run_action(action, ctx, frame),
+                            None => {}
+                        }
+                        if self.image_viewer && !self.annotation {
                             if ui.button("  Modify  ").clicked() {
                                 self.run_action(Action::Modify, ctx, frame)
                             }
@@ -840,7 +870,6 @@ impl eframe::App for MyApp {
             ))
             .open(&mut self.mode)
             .frame(egui::Frame {
-                // fill: egui::Color32::TRANSPARENT,
                 stroke: egui::Stroke::new(1.5, egui::Color32::WHITE),
                 shadow: egui::epaint::Shadow::small_light(),
                 ..Default::default()
@@ -1194,7 +1223,7 @@ impl eframe::App for MyApp {
             };
         }
 
-        if self.get_real_monitor <= 7 {
+        if self.get_real_monitor < 15 {
             self.get_real_monitor += 1;
             ctx.request_repaint();
         }
