@@ -6,7 +6,7 @@ use image;
 use native_dialog::FileDialog;
 use std::borrow::Cow;
 use std::time::Instant;
-use std::{fs, path::Path, time::Duration};
+use std::{fs, path::PathBuf, time::Duration};
 
 mod action;
 mod schermi;
@@ -20,7 +20,6 @@ use shortcut::shortcut::AllKeyArr;
 use shortcut::shortcut::NewShortcut;
 use shortcut::shortcut::ShortcutSet;
 use timer::timer::Timer;
-
 
 fn main() -> Result<(), eframe::Error> {
     let icon: Vec<u8> = image::open("./icon.png")
@@ -134,7 +133,7 @@ impl Default for MyApp {
             timer: Timer::new(),
             show_options: false,
             shortcut_set: ShortcutSet::default(),
-            default_location: "~".to_string(),
+            default_location: "/screenshots".to_string(),
             schermi: Schermi::new(),
             mac_bug: false,
             selection_annotation: SelectionAnnotation::NotSelected,
@@ -378,7 +377,7 @@ impl MyApp {
                                         }
                                         if set_path_text.changed() {
                                             if self.default_location == "" {
-                                                self.default_location = "./screenshots".to_string();
+                                                self.default_location = "/screenshots".to_string();
                                             }
                                         }
                                     });
@@ -447,14 +446,17 @@ impl MyApp {
                 })
                 .join()
                 .expect("Fail to compute date");
-                let mut path = Path::new(&self.default_location);
-                if cfg!(target_os = "macos") {
-                    if ! path.exists() {
-                        path = Path::new("./screenshots");
+                let mut dir: std::path::PathBuf = std::env::current_dir().unwrap();
+                dir.push(&self.default_location);
+                if !dir.exists() {
+                    if cfg!(target_os = "windows") {
+                        dir = PathBuf::from("~");
+                    } else if cfg!(target_os = "macos") {
+                        dir = PathBuf::from("./screenshots");
                     }
                 }
                 let result = match FileDialog::new()
-                    .set_location(path)
+                    .set_location(&dir)
                     .set_filename(&default_name[..27])
                     .add_filter("PNG Image", &["png"])
                     .add_filter("JPEG Image", &["jpg", "jpeg"])
