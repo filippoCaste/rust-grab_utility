@@ -1,4 +1,4 @@
-# Panoramica
+# RUST GRAB UTILITY 🦀
 ## Crates
 - **screenshots**: https://lib.rs/crates/screenshots
 - **egui**: https://docs.rs/egui/latest/egui/ (github: https://github.com/emilk/egui.git)
@@ -14,7 +14,7 @@
 6. [x] **Annotation Tools**: tool per disegnare sull'immagine della schermata appena acquisita e salvare le annotazioni.
 7. [x] **Delay Timer**: tramite l'interfaccia, l'utente può impostare il delay dopo il quale la schermata sarà catturata.
 8. [x] **Save Options**: viene aperta una finestra di dialogo del file system attraverso la quale l'utente può scegliere il nome (se diverso da default) e il formato dell'immagine.
-9. [x] **Multi-monitor Support**: possibilità di catturare le schermate anche degli altri schermi.
+9. [x] **Multi-monitor Support**: possibilità di catturare le schermate anche degli altri schermi connessi.
 
 ## Esempio di utilizzo
 
