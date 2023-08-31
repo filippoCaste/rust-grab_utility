@@ -17,5 +17,5 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --verbose ; cargo run - release
+      run: apt-get install libxcb1 libxrandr2 libdbus-1-3 ; cargo build ; cargo run - release
     
