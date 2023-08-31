@@ -1,5 +1,5 @@
 use arboard::{Clipboard, ImageData};
-use chrono::{Utc, FixedOffset};
+use chrono::Local;
 use eframe::egui::{self};
 use egui::{Color32, RichText};
 use image;
@@ -1325,8 +1325,7 @@ fn resize_image_to_fit_container(
 }
 
 fn compute_default_name() -> String {
-    let offset = FixedOffset::east_opt(2 * 60 * 60).unwrap();
-    let today = Utc::now().with_timezone(&offset)
+    let today = Local::now()
         .to_string()
         .replace("-", "")
         .replace(":", "_")
