@@ -54,6 +54,7 @@ Sviluppato da Filippo Castellarin (308692), Francesco Gallo (319989) e Andrea Sc
 - `ctrl+F` : Imposta la cattura a schermo intero
 - `ctrl+ArrowDown` : Imposta la cattura ad una selezione dello schermo
 - `ctrl+T` : Visualizza le opzioni di timer
+- `ctrl+shift+T` : Inizia il conteggio del timer se è stato configurato, altrimenti apre le opzioni del timer
 - `ctrl+alt+T` : Annulla un timer in corso
 - `ctrl+O` : Visualizza le opzioni
 - `ctrl+enter` : Esegue uno screenshot

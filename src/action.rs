@@ -4,6 +4,7 @@ pub enum Action {
     SetSelection,    //ctrl+ArrowDown
     SettingTimer,    //ctrl+T
     StartTimer,
+    HandleTimer,
     CancelTimer,           //ctrl+alt+T
     Options,               //ctrl+O
     Capture,               //ctrl+enter
@@ -24,6 +25,7 @@ impl Action {
             Action::SetSelection => String::from("Set selection"),
             Action::SettingTimer => String::from("Open timer"),
             Action::StartTimer => String::from("Start timer"),
+            Action::HandleTimer =>String::from("handle timer"),
             Action::CancelTimer => String::from("Cancel timer"),
             Action::Options => String::from("Options"),
             Action::Capture => String::from("Capture"),
@@ -41,6 +43,7 @@ impl Action {
             Action::SetSelection => false,
             Action::SettingTimer => false,
             Action::StartTimer => false,
+            Action::HandleTimer => false,
             Action::CancelTimer => false,
             Action::Options => false,
             Action::Capture => false,
@@ -65,6 +68,7 @@ impl AllActionArr {
                 Action::SetSelection,
                 Action::SettingTimer,
                 Action::StartTimer,
+               
                 Action::CancelTimer,
                 Action::Options,
                 Action::Capture,

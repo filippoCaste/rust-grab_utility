@@ -175,7 +175,14 @@ impl MyApp {
             Action::SettingTimer => {
                 self.timer.open_timer_form();
             }
-            Action::StartTimer => {
+            Action::StartTimer=>{
+                if self.timer.get_seconds() > 0 {
+                    self.timer.start_timer();
+                } else {
+                  self.run_action(Action::SettingTimer, ctx, frame)
+                }
+            }
+            Action::HandleTimer => {
                 let now = Instant::now();
                 if now
                     .duration_since(self.timer.last_decrement().unwrap())
@@ -674,12 +681,7 @@ impl eframe::App for MyApp {
                                 ui.add(egui::Slider::new(&mut self.timer.seconds, 0..=60));
 
                                 if ui.button("Start Timer").clicked() {
-                                    if self.timer.get_seconds() > 0 {
-                                        self.timer.start_timer();
-                                    } else {
-                                        frame.set_visible(false);
-                                        self.window_hidden = true;
-                                    }
+                                   self.run_action(Action::StartTimer, ctx, frame)
                                 }
 
                                 if ui.button("Cancel").clicked() {
@@ -688,7 +690,8 @@ impl eframe::App for MyApp {
                             }
 
                             if self.timer.is_timer_running() {
-                                self.run_action(Action::StartTimer, ctx, frame);
+                              
+                                self.run_action(Action::HandleTimer, ctx, frame);
 
                                 if ui.button("Cancel").clicked() {
                                     self.run_action(Action::CancelTimer, ctx, frame);

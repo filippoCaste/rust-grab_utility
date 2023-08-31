@@ -173,7 +173,7 @@ pub mod shortcut {
                     action: Action::SetSelection,
                 };
 
-                let s_start_timer = ShortCut {
+                let s_open_timer = ShortCut {
                     name: Action::SettingTimer.to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND, Key::T),
                     is_active: true,
@@ -243,9 +243,17 @@ pub mod shortcut {
                     wants_image_viewer: true,
                     action: Action::Undo,
                 };
+                let s_start_timer = ShortCut {
+                    name: Action::Options.to_string(),
+                    shortcut: KeyboardShortcut::new(Modifiers::COMMAND | Modifiers::SHIFT, Key::T),
+                    is_active: true,
+                    wants_image_viewer: false,
+                    action: Action::StartTimer,
+                };
                 output.push(s_save);
                 output.push(s_set_entire_screen);
                 output.push(s_set_selection);
+                output.push(s_open_timer);
                 output.push(s_start_timer);
                 output.push(s_cancel_timer);
                 output.push(s_options);
@@ -255,6 +263,7 @@ pub mod shortcut {
                 output.push(s_another_screenshot);
                 output.push(s_copy);
                 output.push(s_undo);
+                
             }
 
             Self {
