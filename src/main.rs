@@ -1,5 +1,5 @@
 use arboard::{Clipboard, ImageData};
-use chrono::Utc;
+use chrono::{Utc, FixedOffset};
 use eframe::egui::{self};
 use egui::{Color32, RichText};
 use image;
@@ -155,18 +155,7 @@ impl Default for MyApp {
             option: Options::Shortcut,
             new_shortcut: NewShortcut::default(),
             get_real_monitor: 0,
-            default_name: std::thread::spawn(move || {
-                let today = Utc::now()
-                    .to_string()
-                    .replace("-", "")
-                    .replace(":", "_")
-                    .replace(" ", "")
-                    .to_string();
-                format!("screenshot_{}", today)
-            })
-            .join()
-            .expect("Fail to compute date")[..27]
-                .to_string(),
+            default_name: compute_default_name(),
             default_name_sel: true,
             default_name_num: 0,
         }
@@ -404,18 +393,7 @@ impl MyApp {
                                         );
                                         if ui.button("Set default name").clicked() {
                                             self.default_name_sel = true;
-                                            self.default_name = std::thread::spawn(move || {
-                                                let today = Utc::now()
-                                                    .to_string()
-                                                    .replace("-", "")
-                                                    .replace(":", "_")
-                                                    .replace(" ", "")
-                                                    .to_string();
-                                                format!("screenshot_{}", today)
-                                            })
-                                            .join()
-                                            .expect("Fail to compute date")[..27]
-                                                .to_string()
+                                            self.default_name = compute_default_name();
                                         }
                                     });
                                     ui.horizontal(|ui| {
@@ -479,18 +457,7 @@ impl MyApp {
                 self.get_real_monitor = 6;
             }
             Action::Save => {
-                let mut name = std::thread::spawn(move || {
-                    let today = Utc::now()
-                        .to_string()
-                        .replace("-", "")
-                        .replace(":", "_")
-                        .replace(" ", "")
-                        .to_string();
-                    format!("screenshot_{}", today)
-                })
-                .join()
-                .expect("Fail to compute date")[..27]
-                    .to_string();
+                let mut name = compute_default_name();
                 if !self.default_name_sel {
                     if self.default_name_num != 0 {
                         name = format!("{}-{}", self.default_name, self.default_name_num);
@@ -1352,4 +1319,15 @@ fn resize_image_to_fit_container(
         let new_height = new_width / image_ratio;
         (new_width, new_height)
     }
+}
+
+fn compute_default_name() -> String {
+    let offset = FixedOffset::east_opt(2 * 60 * 60).unwrap();
+    let today = Utc::now().with_timezone(&offset)
+        .to_string()
+        .replace("-", "")
+        .replace(":", "_")
+        .replace(" ", "")
+        .to_string();
+    format!("screenshot_{}", today)[..27].to_string()
 }
