@@ -3,6 +3,9 @@
 - **screenshots**: https://lib.rs/crates/screenshots
 - **egui**: https://docs.rs/egui/latest/egui/ (github: https://github.com/emilk/egui.git)
 - **native-dialog**: https://docs.rs/native-dialog/latest/native_dialog/
+- **arboard**: https://lib.rs/crates/arboard
+- **chrono**: https://lib.rs/crates/chrono
+- **image**: https://lib.rs/crates/image
 
 ## Funzionalità
 1. [x] **Platform Support**: l'app può essere utilizzata su tutte le piattaforme.
@@ -25,6 +28,38 @@
 - `🖵`: per catturare la schermata intera
 - `⛶`: per catturare soltanto la porzione di schermo inquadrata
 - `🕓`: per impostare un timer
+- `Capture`: esegue uno screenshot
 - `Options`: per aprire il riquadro dove modificare le opzioni
+- `Modify`: apre l'annotation tool per la modifica dell'immagine
+    * `🖊`: disegno a tratto libero
+    * `/`: disegna un segmento
+    * `↖`: disegna una freccia
+    * `☐`: disegna un rettangolo
+    * `⭕`: disegna un cerchio
+    * `Text`: aggiunge un testo sull'immagine (la conferma dell'aggiunta è richiesta da `Save text`)
+    * `⟲`: annulla l'ultima modifica
+    * `⛶`: ritaglia l'immagine (la conferma del ritaglio è richiesta da ` Save crop`)
+    * `Cancel`: annulla tutte le modifiche apportate all'immagine
+    * `Save modify`: salva in maniera permanente tutte le modifiche apportate all'immagine
+
+- `📋`: copia l'immagine
+- `Take another screenshot`: permette di eseguire un altro screenshot cancellando l'immagine e le modifiche in corso 
 - `X`: per chiudere l'applicazione
 
+## Percorso di salvataggio predefinito
+- `./screenshots`
+
+## Shortcut predefinite
+- `ctrl+F` : Imposta la cattura a schermo intero
+- `ctrl+ArrowDown` : Imposta la cattura ad una selezione dello schermo
+- `ctrl+T` : Visualizza le opzioni di timer
+- `ctrl+alt+T` : Annulla un timer in corso
+- `ctrl+O` : Visualizza le opzioni
+- `ctrl+enter` : Esegue uno screenshot
+- `ctrl+X` : Chiude l'applicazione
+- `ctrl+M` : Visualizza le opzioni di modifica dell'immagine una volta acquisita
+- `ctrl+A` : Esegue un altro screenshot
+- `ctrl+S` : Salva l'immagine
+- `Ctrl+C` : Copia l'immagine 
+- `Ctrl+Z` : Annulla l'ultima modifica all'immagine
+- N.B. i tasti di selezione delle shortcut variano a seconda del sistema operativo in uso: ctrl corrisponde al cmd per macos. 
