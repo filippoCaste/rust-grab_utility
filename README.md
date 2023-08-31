@@ -1,4 +1,5 @@
 # RUST GRAB UTILITY 🦀
+Sviluppato da Filippo Castellarin (308692), Francesco Gallo (319989) e Andrea Scamporrino (318927) per il corso di Programmazione di Sistema del Politecnico di Torino (A.A 2022/2023)
 ## Crates
 - **screenshots**: https://lib.rs/crates/screenshots
 - **egui**: https://docs.rs/egui/latest/egui/ (github: https://github.com/emilk/egui.git)
@@ -42,7 +43,7 @@
     * `Cancel`: annulla tutte le modifiche apportate all'immagine
     * `Save modify`: salva in maniera permanente tutte le modifiche apportate all'immagine
 
-- `📋`: copia l'immagine
+- `📋`: copia l'immagine negli appunti del dispositivo
 - `Take another screenshot`: permette di eseguire un altro screenshot cancellando l'immagine e le modifiche in corso 
 - `X`: per chiudere l'applicazione
 
