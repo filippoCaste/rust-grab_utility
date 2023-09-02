@@ -438,6 +438,7 @@ impl MyApp {
                 }
             }
             Action::Capture => {
+                self.timer.cancel_timer();
                 self.window_hidden = true;
                 frame.set_visible(false);
             }
