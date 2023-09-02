@@ -169,17 +169,19 @@ impl MyApp {
                 self.mode = false;
             }
             Action::SetSelection => {
-                self.mode_radio = SelectionMode::Selection;
-                self.mode = true;
+                if self.schermi.screen_no == self.schermi.default_screen_no {
+                    self.mode_radio = SelectionMode::Selection;
+                    self.mode = true;
+                }
             }
             Action::SettingTimer => {
                 self.timer.open_timer_form();
             }
-            Action::StartTimer=>{
+            Action::StartTimer => {
                 if self.timer.get_seconds() > 0 {
                     self.timer.start_timer();
                 } else {
-                  self.run_action(Action::SettingTimer, ctx, frame)
+                    self.run_action(Action::SettingTimer, ctx, frame)
                 }
             }
             Action::HandleTimer => {
@@ -681,7 +683,7 @@ impl eframe::App for MyApp {
                                 ui.add(egui::Slider::new(&mut self.timer.seconds, 0..=60));
 
                                 if ui.button("Start Timer").clicked() {
-                                   self.run_action(Action::StartTimer, ctx, frame)
+                                    self.run_action(Action::StartTimer, ctx, frame)
                                 }
 
                                 if ui.button("Cancel").clicked() {
@@ -690,7 +692,6 @@ impl eframe::App for MyApp {
                             }
 
                             if self.timer.is_timer_running() {
-                              
                                 self.run_action(Action::HandleTimer, ctx, frame);
 
                                 if ui.button("Cancel").clicked() {
