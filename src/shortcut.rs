@@ -244,7 +244,7 @@ pub mod shortcut {
                     action: Action::Undo,
                 };
                 let s_start_timer = ShortCut {
-                    name: Action::Options.to_string(),
+                    name: Action::StartTimer.to_string(),
                     shortcut: KeyboardShortcut::new(Modifiers::COMMAND | Modifiers::SHIFT, Key::T),
                     is_active: true,
                     wants_image_viewer: false,
